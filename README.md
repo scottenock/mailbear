@@ -59,6 +59,33 @@ forms:
 ```
 
 
+## Rate Limiting & Reverse Proxies
+
+MailBear rate-limits submissions per client IP address. To determine the client
+IP it trusts the `X-Forwarded-For` header, **but only when the request arrives
+from a loopback, link-local, or private-network address** (i.e. a reverse proxy
+running on the same host or private network). Requests from any other source
+have their `X-Forwarded-For` header ignored and are rate-limited by their real
+connection IP. This prevents a client from spoofing the header to bypass the
+rate limiter.
+
+> ⚠️ **This protection depends on your reverse proxy _appending_ the real
+> client IP to `X-Forwarded-For`, not blindly passing through whatever the
+> client sent.** If your proxy forwards the client-supplied header verbatim, a
+> client can still spoof its IP and evade rate limiting.
+>
+> - **Caddy** (`reverse_proxy`), **Traefik**, and **nginx** (using
+>   `$proxy_add_x_forwarded_for`) all append correctly by default — no action
+>   needed.
+> - Also make sure MailBear itself is **not** reachable directly on a public
+>   interface, bypassing the proxy. Bind it to localhost or a private network
+>   and let only the proxy reach it.
+
+If you run MailBear **without** a reverse proxy (exposed directly to clients),
+no configuration is needed: the connection IP is used directly and cannot be
+spoofed.
+
+
 ## Usage
 
 Once MailBear is running you can send requests with form data in the JSON body:

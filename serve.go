@@ -40,6 +40,14 @@ func Serve(config *Config) {
 
 	e.HideBanner = true
 
+	// Trust X-Forwarded-For only when the immediate connection comes from
+	// a loopback/link-local/private-net address (i.e. a reverse proxy on
+	// the same host or private network), and walk back through the chain
+	// to find the real client IP. This keeps the rate limiter (keyed on
+	// RealIP) working behind a local reverse proxy while still discarding
+	// values a client tries to spoof further up the chain.
+	e.IPExtractor = echo.ExtractIPFromXFFHeader()
+
 	// request logging
 	nekoLog.Logger().SetOutput(os.Stdout)
 	nekoLog.Logger().SetLevel(echoLog.INFO)
