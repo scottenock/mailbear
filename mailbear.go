@@ -2,6 +2,7 @@ package mailbear
 
 import (
 	"fmt"
+	"html"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -63,7 +64,14 @@ func buildMailBody(formSubmission *FormSubmission) string {
 	<p><b>Content:</b><br><br>%s</p>
 	`
 
-	return fmt.Sprintf(template, formSubmission.Name, formSubmission.Email, formSubmission.Subject, strings.ReplaceAll(formSubmission.Content, "\n", "<br>"))
+	content := strings.ReplaceAll(html.EscapeString(formSubmission.Content), "\n", "<br>")
+
+	return fmt.Sprintf(template,
+		html.EscapeString(formSubmission.Name),
+		html.EscapeString(formSubmission.Email),
+		html.EscapeString(formSubmission.Subject),
+		content,
+	)
 }
 
 // SendMail sends a formsubmission to the receiver of the form.
