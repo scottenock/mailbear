@@ -3,6 +3,7 @@ package mailbear
 import (
 	"fmt"
 	"html"
+	"net/http"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -21,7 +22,8 @@ var formSubmissionsCounter = promauto.NewCounterVec(
 
 // MailBear will handle all the logic behind the forms.
 type MailBear struct {
-	config *Config
+	config     *Config
+	httpClient *http.Client
 }
 
 // formExists checks whether the given form exists in the config.

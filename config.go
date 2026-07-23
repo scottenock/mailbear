@@ -28,8 +28,19 @@ type Config struct {
 		Metrics struct {
 			Address string `yaml:"address"`
 		} `yaml:"metrics"`
+		Turnstile struct {
+			// Secret is the Cloudflare Turnstile secret key. When empty, Turnstile
+			// verification is disabled and submissions rely on the other defences
+			// (honeypot, rate limiting).
+			Secret string `yaml:"secret"`
+		} `yaml:"turnstile"`
 	} `yaml:"global"`
 	Forms map[string]*Form `yaml:"forms"`
+}
+
+// TurnstileEnabled reports whether Cloudflare Turnstile verification is configured.
+func (config *Config) TurnstileEnabled() bool {
+	return config.Global.Turnstile.Secret != ""
 }
 
 // Validate checks for all the required values in config

@@ -11,7 +11,11 @@ global:
         address: ":1234"
     metrics:
         address: ":9090"
-    
+    turnstile:
+        # Cloudflare Turnstile secret key. Leave empty to disable captcha
+        # verification (submissions then rely on the honeypot + rate limiting).
+        secret:
+
 
 forms:
     some-form-name:

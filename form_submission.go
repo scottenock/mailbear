@@ -13,6 +13,14 @@ type FormSubmission struct {
 	Subject string `json:"subject" form:"subject"`
 	Content string `json:"content" form:"content"`
 	FormID  string `json:"-"`
+
+	// Honeypot is a decoy field that legitimate front-ends keep hidden and empty.
+	// Naive bots fill every field, so a non-empty value marks the submission as spam.
+	Honeypot string `json:"_gotcha" form:"_gotcha"`
+
+	// TurnstileToken carries the Cloudflare Turnstile response token produced by the
+	// widget on the client. It is verified server-side when a Turnstile secret is set.
+	TurnstileToken string `json:"cf-turnstile-response" form:"cf-turnstile-response"`
 }
 
 // Validate validates all fields of a form submission.

@@ -24,7 +24,10 @@ func Serve(config *Config) {
 	}
 
 	// prep mailbear
-	m := &MailBear{config: config}
+	m := &MailBear{
+		config:     config,
+		httpClient: &http.Client{Timeout: 10 * time.Second},
+	}
 
 	// prep echo
 	e := echo.New()
