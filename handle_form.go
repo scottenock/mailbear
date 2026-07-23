@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
+	log "github.com/sirupsen/logrus"
 )
 
 func (m *MailBear) handleForm(c echo.Context) error {
@@ -35,9 +36,12 @@ func (m *MailBear) handleForm(c echo.Context) error {
 	// send the mail
 	err := m.SendMail(data)
 	if err != nil {
+		log.WithFields(log.Fields{
+			"form":  data.FormID,
+			"error": err,
+		}).Error("failed to send form submission email")
 		return c.JSON(http.StatusInternalServerError, mailbearRespone("couldn't send the mail"))
 	}
 
 	return c.JSON(http.StatusOK, mailbearRespone("form was submitted successfully"))
-
 }

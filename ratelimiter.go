@@ -20,7 +20,7 @@ func RateLimitMiddleware(period time.Duration, limit int64) echo.MiddlewareFunc 
 		return func(c echo.Context) error {
 			context, err := limiterInstance.Get(c.Request().Context(), c.RealIP())
 			if err != nil {
-				//fmt.Errorf("Could not get context for IP %s - %v", c.RealIP(), err)
+				// On limiter backend errors, fail open and let the request through.
 				return next(c)
 			}
 			c.Response().Header().Add("X-RateLimit-Limit", strconv.FormatInt(context.Limit, 10))

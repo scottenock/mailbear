@@ -1,11 +1,17 @@
 package main
 
 import (
+	"flag"
+	"fmt"
 	"os"
 
-	"github.com/DenBeke/mailbear"
+	"github.com/laputalabs/mailbear"
 	log "github.com/sirupsen/logrus"
 )
+
+// version is stamped at build time via -ldflags "-X main.version=...".
+// It defaults to DEV for local/unversioned builds.
+var version = "DEV"
 
 func getenv(key, fallback string) string {
 	value := os.Getenv(key)
@@ -16,6 +22,15 @@ func getenv(key, fallback string) string {
 }
 
 func main() {
+	showVersion := flag.Bool("version", false, "print the version and exit")
+	flag.Parse()
+
+	if *showVersion {
+		fmt.Println(version)
+		return
+	}
+
+	log.Infof("Starting MailBear %s", version)
 
 	configFile := getenv("CONFIG_FILE", "config.yml")
 	config, err := mailbear.GetConfigFromFile(configFile)
@@ -24,6 +39,4 @@ func main() {
 	}
 
 	mailbear.Serve(config)
-
-	return
 }

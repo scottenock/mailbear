@@ -1,6 +1,6 @@
-module github.com/DenBeke/mailbear
+module github.com/laputalabs/mailbear
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/badoux/checkmail v1.2.4

@@ -3,7 +3,7 @@ package mailbear_test
 import (
 	"testing"
 
-	"github.com/DenBeke/mailbear"
+	"github.com/laputalabs/mailbear"
 	"github.com/stretchr/testify/require"
 )
 
@@ -14,17 +14,14 @@ const (
 )
 
 func TestGetConfigFromFile(t *testing.T) {
-
 	config, err := mailbear.GetConfigFromFile(configFile)
 
 	require.NoError(t, err, "should be able to parse config file")
 
 	require.Len(t, config.Forms, 1, "should have a form in the sample config file.")
-
 }
 
 func TestSampleConfigFileIsValid(t *testing.T) {
-
 	config, err := mailbear.GetConfigFromFile(configFile)
 
 	require.NoError(t, err, "should be able to parse config file")
@@ -32,21 +29,16 @@ func TestSampleConfigFileIsValid(t *testing.T) {
 	err = config.Validate()
 
 	require.NoError(t, err, "sampel config file should be valid")
-
 }
 
 func TestGetConfigFromFileNotExists(t *testing.T) {
-
 	_, err := mailbear.GetConfigFromFile(nonExistingFile)
 
 	require.Error(t, err, "should have error on no existing file")
-
 }
 
 func TestGetConfigFromFileInvalid(t *testing.T) {
-
 	_, err := mailbear.GetConfigFromFile(invalidFile)
 
 	require.Error(t, err, "should have error on non-json file")
-
 }

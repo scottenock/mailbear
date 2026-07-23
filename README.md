@@ -1,8 +1,8 @@
 # 🐻 MailBear: Forms Backend
 
-[![Build Status](https://travis-ci.com/DenBeke/mailbear.svg?branch=master)](https://travis-ci.com/DenBeke/mailbear)
-[![Go Report Card](https://goreportcard.com/badge/github.com/DenBeke/mailbear)](https://goreportcard.com/report/github.com/DenBeke/mailbear)
-[![Docker Image Size (latest by date)](https://img.shields.io/docker/image-size/denbeke/mailbear?sort=date)](https://hub.docker.com/r/denbeke/mailbear)
+[![Test](https://github.com/laputalabs/mailbear/actions/workflows/test.yml/badge.svg)](https://github.com/laputalabs/mailbear/actions/workflows/test.yml)
+[![Lint](https://github.com/laputalabs/mailbear/actions/workflows/lint.yml/badge.svg)](https://github.com/laputalabs/mailbear/actions/workflows/lint.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/laputalabs/mailbear)](https://goreportcard.com/report/github.com/laputalabs/mailbear)
 
 
 MailBear is an open source, self hosted forms backend.
@@ -17,7 +17,7 @@ You can easily run MailBear with Docker:
 
 Copy `config_sample.yml` to `config.yml` and run the server:
 
-    docker run -v $(PWD)/config.yml:/mailbear/config.yml denbeke/mailbear
+    docker run -v $(PWD)/config.yml:/mailbear/config.yml ghcr.io/laputalabs/mailbear:latest
 
 For your convenience I created a [docker-compose.yml](./docker-compose.yml) file.
 
@@ -26,7 +26,15 @@ For your convenience I created a [docker-compose.yml](./docker-compose.yml) file
 
 Copy `config_sample.yml` to `config.yml` and run the server:
 
-    go run cmd/mailbear/main.go
+    go run ./cmd/mailbear
+
+Common tasks are wrapped in the `Makefile` (run `make help` for the full list):
+
+    make setup   # install dev tools (gofumpt, golangci-lint, govulncheck)
+    make dev     # build ./bin/mailbear
+    make test    # run tests with the race detector
+    make lint    # run golangci-lint
+    make docker  # build the Docker image
 
 
 
@@ -311,6 +319,6 @@ A Grafana dashboard for these metrics is available here: [./grafana/dashboard.js
 * [github.com/prometheus/client_golang](https://github.com/prometheus/client_golang)
 
 
-## Author
+## Credits
 
-[Mathias Beke](https://denbeke.be)
+Forked from [MailBear](https://github.com/DenBeke/mailbear) by [Mathias Beke](https://denbeke.be).

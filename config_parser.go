@@ -1,7 +1,7 @@
 package mailbear
 
 import (
-	"io/ioutil"
+	"os"
 
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
@@ -9,10 +9,9 @@ import (
 
 // GetConfigFromFile parses a config file into a Config struct
 func GetConfigFromFile(configFile string) (config *Config, err error) {
-
 	config = &Config{}
 
-	yamlFile, err := ioutil.ReadFile(configFile)
+	yamlFile, err := os.ReadFile(configFile)
 	if err != nil {
 		err = errors.Wrapf(err, "couldn't open config file %q", configFile)
 		return

@@ -17,9 +17,7 @@ type FormSubmission struct {
 
 // Validate validates all fields of a form submission.
 func (f *FormSubmission) Validate() error {
-	if f.Name == "" {
-		// name is optional
-	}
+	// Note: Name is optional and intentionally not validated here.
 	if f.Email == "" {
 		return fmt.Errorf("field 'email'cannot be empty")
 	}

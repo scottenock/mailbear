@@ -3,24 +3,19 @@ package mailbear_test
 import (
 	"testing"
 
-	"github.com/DenBeke/mailbear"
+	"github.com/laputalabs/mailbear"
 	"github.com/stretchr/testify/require"
 )
 
 func TestConfigValidateValid(t *testing.T) {
-
 	// TODO
-
 }
 
 func TestConfigValidateInvalid(t *testing.T) {
-
 	// TODO
-
 }
 
 func TestFormValidateValid(t *testing.T) {
-
 	testInput := []mailbear.Form{
 		{
 			Key: "test",
@@ -38,11 +33,9 @@ func TestFormValidateValid(t *testing.T) {
 		err := testForm.Validate()
 		require.NoError(t, err, "should be valid form")
 	}
-
 }
 
 func TestFormValidateInvalid(t *testing.T) {
-
 	testInput := []mailbear.Form{
 		{
 			// no allowed domains
@@ -87,7 +80,6 @@ func TestFormValidateInvalid(t *testing.T) {
 		err := testForm.Validate()
 		require.Error(t, err, "should be invalid form")
 	}
-
 }
 
 var simpleForm = mailbear.Form{
@@ -98,14 +90,10 @@ var simpleForm = mailbear.Form{
 }
 
 func TestOriginDomainAllowed(t *testing.T) {
-
 	require.True(t, simpleForm.OriginDomainAllowed("http://allowed.tld"), "allowed domain")
 	require.True(t, simpleForm.OriginDomainAllowed("https://another.allowed.tld"), "allowed domain")
-
 }
 
 func TestOriginDomainNotAllowed(t *testing.T) {
-
 	require.False(t, simpleForm.OriginDomainAllowed("http://random.domain.tld"), "not allowed domain")
-
 }

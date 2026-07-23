@@ -1,0 +1,27 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - misspell
+    - revive
+    - unconvert
+  settings:
+    revive:
+      rules:
+        # Style-only nits that would force churn across otherwise-fine code.
+        - name: package-comments
+          disabled: true
+        - name: unused-parameter
+          disabled: true
+
+formatters:
+  enable:
+    - gofumpt

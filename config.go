@@ -34,7 +34,6 @@ type Config struct {
 
 // Validate checks for all the required values in config
 func (config *Config) Validate() error {
-
 	if config.Global.SMTP.Host == "" {
 		return fmt.Errorf("smpt host must be set")
 	}
@@ -108,7 +107,6 @@ func (form *Form) Validate() error {
 
 // OriginDomainAllowed checks whether the given origin is allowed to access the form.
 func (form *Form) OriginDomainAllowed(origin string) bool {
-
 	if origin == "" {
 		return false
 	}

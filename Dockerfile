@@ -1,37 +1,32 @@
-FROM golang:latest AS build
+FROM golang:1.26-alpine3.23 AS build
 
-WORKDIR /random_work_dir
+RUN apk add --no-cache make \
+    && apk cache clean
 
-# first download dependencies
-COPY go.mod /random_work_dir
-COPY go.sum /random_work_dir
+WORKDIR /src
+
+# Download dependencies first so this layer caches until go.mod/go.sum change.
+COPY go.mod go.sum ./
 RUN go mod download
 
-# then copy source code
-COPY / /random_work_dir
+# Then copy source and build via the Makefile, so build flags (ldflags, trimpath,
+# version stamping) live in one place shared with local/CI builds.
+COPY . .
+ARG VERSION=DEV
+RUN make prod VERSION=$VERSION
 
-
-RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o /mailbear ./cmd/mailbear
-
-
-FROM alpine:latest
-
-WORKDIR /
-
-# Copy executable
-COPY --from=build /mailbear /bin/mailbear
-RUN chmod +x /bin/mailbear
-
-# Copy config
-RUN mkdir /mailbear/
-COPY config_sample.yml /mailbear/config.yml
+FROM alpine:3.23
 
 WORKDIR /mailbear
 
+# Copy executable
+COPY --from=build /src/bin/mailbear /bin/mailbear
 
+# Copy sample config as a default
+COPY config_sample.yml /mailbear/config.yml
 
 EXPOSE 1234
 EXPOSE 9090
 VOLUME ["/mailbear"]
 
-CMD ["/bin/mailbear"]
+ENTRYPOINT ["/bin/mailbear"]

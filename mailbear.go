@@ -26,7 +26,6 @@ type MailBear struct {
 
 // formExists checks whether the given form exists in the config.
 func (m *MailBear) formExists(formID string) bool {
-
 	if m.config.Forms == nil {
 		return false
 	}
@@ -42,7 +41,6 @@ func (m *MailBear) formExists(formID string) bool {
 
 // getFormByID gets the form with the given id from the config.
 func (m *MailBear) getFormByID(formID string) *Form {
-
 	for _, form := range m.config.Forms {
 		if form.Key == formID {
 			return form
@@ -66,7 +64,8 @@ func buildMailBody(formSubmission *FormSubmission) string {
 
 	content := strings.ReplaceAll(html.EscapeString(formSubmission.Content), "\n", "<br>")
 
-	return fmt.Sprintf(template,
+	return fmt.Sprintf(
+		template,
 		html.EscapeString(formSubmission.Name),
 		html.EscapeString(formSubmission.Email),
 		html.EscapeString(formSubmission.Subject),
@@ -76,7 +75,6 @@ func buildMailBody(formSubmission *FormSubmission) string {
 
 // SendMail sends a formsubmission to the receiver of the form.
 func (m *MailBear) SendMail(formSubmission *FormSubmission) error {
-
 	form := m.getFormByID(formSubmission.FormID)
 	if form == nil {
 		return fmt.Errorf("form does not exist")

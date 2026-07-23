@@ -1,0 +1,67 @@
+name: Release Binaries
+
+# On-demand cross-compiled CLI binaries attached to an existing release. Kept off the
+# release path deliberately: the shipped artifact is the Docker image (docker-publish.yml),
+# so a normal release shouldn't spend minutes cross-compiling targets nobody consumes.
+# Run this from the Actions tab (passing the release tag) when downloadable binaries are wanted.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to build and attach binaries to (e.g. v1.2.0)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  binary:
+    name: Build and Release Binaries
+    runs-on: ubuntu-latest
+    steps:
+      # Reject anything that isn't a plain semver tag before it reaches checkout or the
+      # build. The tag flows into a git ref and into -ldflags, so an unvalidated value
+      # could inject build flags or shell. Read from env (never inlined into the script).
+      - name: Validate Tag
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          if ! printf '%s' "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$'; then
+            echo "::error::Invalid tag '$TAG'; expected a semver tag like v1.2.0"
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "^1.26.0"
+          # On-demand build off the deploy path; skip the module cache so a poisoned
+          # go.mod/go.sum can't corrupt builds via a restored cache.
+          cache: false
+
+      - name: Build Binaries
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          mkdir -p builds/compressed
+          go install github.com/mitchellh/gox@latest
+          gox --output "builds/mailbear-{{.OS}}-{{.Arch}}" \
+              -ldflags "-s -w -X main.version=${TAG}" \
+              -osarch 'darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64' \
+              ./cmd/mailbear
+          cd builds
+          find . -maxdepth 1 -type f -execdir zip 'compressed/{}.zip' '{}' \;
+
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag }}
+          files: builds/compressed/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

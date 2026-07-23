@@ -15,17 +15,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type httpError struct {
-	Error string
-}
-
-func constructHTTPError(err error) httpError {
-	return httpError{err.Error()}
-}
-
 // Serve craftboard server
 func Serve(config *Config) {
-
 	// Validate config
 	err := config.Validate()
 	if err != nil {

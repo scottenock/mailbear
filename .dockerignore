@@ -1,0 +1,6 @@
+.git
+.github
+bin
+*.md
+!README.md
+config.yml
