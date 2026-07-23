@@ -1,21 +1,8 @@
-global:
-    smtp:
-        host: some-smtp-server-hostname
-        port: 25
-        user:
-        password:
-        disable_tls: true
-        from_email: no-reply@example.com
-        from_name: MailBear
-    http:
-        address: ":1234"
-    metrics:
-        address: ":9090"
-    turnstile:
-        # Cloudflare Turnstile secret key. Leave empty to disable captcha
-        # verification (submissions then rely on the honeypot + rate limiting).
-        secret:
-
+# MailBear forms configuration.
+#
+# Only the per-form list lives here. Operational settings (SMTP, addresses,
+# Turnstile secret, rate limit) are supplied via flags or environment variables
+# — see the README or `mailbear serve --help`.
 
 forms:
     some-form-name:

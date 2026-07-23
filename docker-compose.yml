@@ -4,8 +4,19 @@ services:
     container_name: mailbear
     image: ghcr.io/laputalabs/mailbear:latest
     # build: .
+    command: serve
     ports:
       - "1234:1234"
       # - "9090:9090" # for prometheus metrics
-    volumes: 
+    environment:
+      SMTP_HOST: smtp.example.com
+      SMTP_PORT: "587"
+      SMTP_USER: ""
+      SMTP_PASSWORD: ""
+      SMTP_FROM_EMAIL: no-reply@example.com
+      SMTP_FROM_NAME: MailBear
+      # SMTP_DISABLE_TLS: "false"
+      # TURNSTILE_SECRET: ""
+      # RATE_LIMIT: "5"
+    volumes:
       - ./config.yml:/mailbear/config.yml

@@ -29,4 +29,7 @@ EXPOSE 1234
 EXPOSE 9090
 VOLUME ["/mailbear"]
 
+# Operational settings (SMTP, Turnstile, addresses) are passed at runtime via env
+# vars or flags; only the forms config lives in the mounted /mailbear volume.
 ENTRYPOINT ["/bin/mailbear"]
+CMD ["serve"]

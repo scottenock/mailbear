@@ -1,0 +1,9 @@
+forms:
+    some-form-name:
+        key: some-random-key
+        allowed_domains:
+            - localhost:8080
+            - example.com
+        to_email:
+            - recipient@example.com
+            - another-recipient@example.com

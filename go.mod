@@ -4,13 +4,12 @@ go 1.26.0
 
 require (
 	github.com/badoux/checkmail v1.2.4
-	github.com/globocom/echo-prometheus v0.1.2
 	github.com/labstack/echo/v4 v4.15.4
-	github.com/labstack/gommon v0.5.0
-	github.com/neko-neko/echo-logrus/v2 v2.0.2
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.24.0
-	github.com/sirupsen/logrus v1.9.4
+	github.com/rs/zerolog v1.35.1
+	github.com/spf13/cast v1.10.0
+	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
 	github.com/ulule/limiter/v3 v3.11.2
 	gopkg.in/mail.v2 v2.3.1
@@ -21,7 +20,8 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/kr/pretty v0.3.1 // indirect
+	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/labstack/gommon v0.5.0 // indirect
 	github.com/mattn/go-colorable v0.1.15 // indirect
 	github.com/mattn/go-isatty v0.0.23 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
@@ -30,6 +30,7 @@ require (
 	github.com/prometheus/common v0.70.1 // indirect
 	github.com/prometheus/procfs v0.21.1 // indirect
 	github.com/rogpeppe/go-internal v1.10.0 // indirect
+	github.com/spf13/pflag v1.0.9 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	golang.org/x/crypto v0.54.0 // indirect

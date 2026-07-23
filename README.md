@@ -13,20 +13,27 @@ MailBear will always hide the email address of the recepient, since the forms ar
 
 ## Run with Docker
 
-You can easily run MailBear with Docker:
+You can easily run MailBear with Docker. Copy `config_sample.yml` to `config.yml`
+(it holds only your forms), then pass the operational settings as environment
+variables:
 
-Copy `config_sample.yml` to `config.yml` and run the server:
+    docker run \
+      -v $(PWD)/config.yml:/mailbear/config.yml \
+      -e SMTP_HOST=smtp.example.com \
+      -e SMTP_FROM_EMAIL=no-reply@example.com \
+      -p 1234:1234 \
+      ghcr.io/laputalabs/mailbear:latest
 
-    docker run -v $(PWD)/config.yml:/mailbear/config.yml ghcr.io/laputalabs/mailbear:latest
-
-For your convenience I created a [docker-compose.yml](./docker-compose.yml) file.
+A [docker-compose.yml](./docker-compose.yml) file is provided with the full set of
+environment variables.
 
 
 ## Run in Development
 
-Copy `config_sample.yml` to `config.yml` and run the server:
+Copy `config_sample.yml` to `config.yml`, then run the `serve` command:
 
-    go run ./cmd/mailbear
+    SMTP_HOST=smtp.example.com SMTP_FROM_EMAIL=no-reply@example.com \
+      go run ./cmd/mailbear serve --config config.yml
 
 Common tasks are wrapped in the `Makefile` (run `make help` for the full list):
 
@@ -36,29 +43,41 @@ Common tasks are wrapped in the `Makefile` (run `make help` for the full list):
     make lint    # run golangci-lint
     make docker  # build the Docker image
 
+MailBear shuts down gracefully on `SIGINT`/`SIGTERM`, draining in-flight requests.
 
 
 ## Configuration
 
-Configuration is very simple. Just create as many forms as you want in `config.yml`:
+MailBear is configured in two places: **operational settings** via flags or
+environment variables, and the **forms list** via a YAML file.
+
+### Operational settings (flags / env)
+
+Every flag has an environment-variable equivalent. Run `mailbear serve --help`
+for the authoritative list.
+
+| Flag | Env var | Default | Description |
+|------|---------|---------|-------------|
+| `--config` | `CONFIG_FILE` | `config.yml` | Path to the forms config file |
+| `--httpAddress` | `HTTP_ADDRESS` | `:1234` | API server listen address |
+| `--metricsAddress` | `METRICS_ADDRESS` | `:9090` | Prometheus metrics listen address |
+| `--rateLimit` | `RATE_LIMIT` | `5` | Max submissions per client IP per minute |
+| `--smtpHost` | `SMTP_HOST` | — (required) | SMTP server hostname |
+| `--smtpPort` | `SMTP_PORT` | `587` | SMTP server port |
+| `--smtpUser` | `SMTP_USER` | — | SMTP username |
+| `--smtpPassword` | `SMTP_PASSWORD` | — | SMTP password |
+| `--smtpDisableTLS` | `SMTP_DISABLE_TLS` | `false` | Disable STARTTLS |
+| `--smtpFromEmail` | `SMTP_FROM_EMAIL` | — (required) | From address for outgoing mail |
+| `--smtpFromName` | `SMTP_FROM_NAME` | `MailBear` | From name for outgoing mail |
+| `--turnstileSecret` | `TURNSTILE_SECRET` | — | Cloudflare Turnstile secret key (empty disables captcha) |
+| `--logLevel` | `LOG_LEVEL` | `info` | Log level (debug, info, warn, error) |
+| `--prettyLog` | `PRETTY_LOG` | `true` | Pretty-print logs to the console |
+
+### Forms (`config.yml`)
+
+Define as many forms as you want:
 
 ```yaml
-global:
-    smtp:
-        host: smtp.example.com
-        port: 25
-        user:
-        password:
-        disable_tls: true
-        from_email: no-reply@example.com
-        from_name: MailBear
-    http:
-        address: ":1234"
-    turnstile:
-        # Optional: Cloudflare Turnstile secret key. Leave empty to disable.
-        secret: ""
-
-
 forms:
     some-form-name:
         key: some-random-key
@@ -66,7 +85,7 @@ forms:
             - localhost:8080
             - example.com
         to_email:
-            - recepient@example.com
+            - recipient@example.com
 ```
 
 
