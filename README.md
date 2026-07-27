@@ -221,6 +221,48 @@ Templates are loaded and validated at startup, so a missing template file or a
 syntax error fails fast rather than at send time.
 
 
+## Webhook Forwarding
+
+Each form can POST its submissions as JSON to a URL via the `webhook_url` field —
+useful for Slack, Discord, Zapier, n8n, or any HTTP endpoint. A form needs **at
+least one** of `to_email` or `webhook_url`; set only `webhook_url` for a form that
+delivers by webhook and sends no email at all (in which case no SMTP config is
+required).
+
+```yaml
+forms:
+    contact:                       # email + webhook
+        key: contact-key
+        allowed_domains: [example.com]
+        to_email: [me@example.com]
+        webhook_url: https://hooks.example.com/contact
+    alerts:                        # webhook only, no email
+        key: alerts-key
+        allowed_domains: [example.com]
+        webhook_url: https://n8n.example.com/webhook/abc
+```
+
+The payload is a JSON object:
+
+```json
+{"form":"contact","name":"Joe","email":"joe@example.com","subject":"Hi","content":"the message"}
+```
+
+Delivery semantics:
+
+- **Email is the primary channel.** When a form has `to_email`, a delivery failure
+  fails the request (the submitter sees an error and can retry).
+- **A webhook is best-effort when email is also configured**: if the email is sent
+  but the webhook POST fails, the request still succeeds and the failure is logged
+  (and counted in `mailbear_webhook_deliveries_total{outcome="failure"}`).
+- **When the webhook is the only channel**, a non-2xx response or a connection
+  error fails the request.
+
+> The `webhook_url` is operator configuration (from `config.yml`), never user
+> input, so it is trusted and not SSRF-filtered. Only point it at endpoints you
+> control or trust.
+
+
 ## Examples
 
 

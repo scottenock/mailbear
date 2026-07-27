@@ -29,11 +29,19 @@ func newTestService(t *testing.T, opts ...Option) *Service {
 }
 
 func TestNewRequiresSettings(t *testing.T) {
-	_, err := New(zerolog.Nop(), WithForms([]*domain.Form{{Key: "k"}}))
-	require.Error(t, err, "should require SMTP settings")
+	_, err := New(zerolog.Nop(), WithForms([]*domain.Form{{Key: "k", ToEmail: []string{"a@b.com"}}}))
+	require.Error(t, err, "should require SMTP settings when a form sends email")
 
 	_, err = New(zerolog.Nop(), WithSettings(domain.Settings{SMTP: domain.SMTP{Host: "h", Port: 25, FromEmail: "f@x"}}))
 	require.Error(t, err, "should require at least one form")
+}
+
+func TestNewWebhookOnlyNeedsNoSMTP(t *testing.T) {
+	_, err := New(
+		zerolog.Nop(),
+		WithForms([]*domain.Form{{Key: "k", WebhookURL: "https://example.com/hook"}}),
+	)
+	require.NoError(t, err, "a webhook-only form should not require SMTP settings")
 }
 
 func TestFormByKey(t *testing.T) {
@@ -114,6 +122,50 @@ func TestSubjectTemplateRender(t *testing.T) {
 	var buf strings.Builder
 	require.NoError(t, svc.mailers["k"].subject.Execute(&buf, domain.TemplateData{Name: "Joe", FormName: "contact"}))
 	require.Equal(t, "New contact from Joe", buf.String())
+}
+
+func TestSendWebhookOnly(t *testing.T) {
+	var gotBody, gotContentType string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		gotBody = string(b)
+		gotContentType = r.Header.Get("Content-Type")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	svc, err := New(
+		zerolog.Nop(),
+		WithForms([]*domain.Form{{Key: "hook-key", HumanReadableName: "alerts", WebhookURL: srv.URL}}),
+	)
+	require.NoError(t, err)
+
+	err = svc.Send(context.Background(), &domain.FormSubmission{
+		FormID:  "hook-key",
+		Name:    "Ada",
+		Email:   "ada@example.com",
+		Subject: "Hi",
+		Content: "hello",
+	})
+	require.NoError(t, err)
+	require.Equal(t, "application/json", gotContentType)
+	require.JSONEq(t, `{"form":"alerts","name":"Ada","email":"ada@example.com","subject":"Hi","content":"hello"}`, gotBody)
+}
+
+func TestSendWebhookOnlyFailsOnNon2xx(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	svc, err := New(
+		zerolog.Nop(),
+		WithForms([]*domain.Form{{Key: "hook-key", HumanReadableName: "alerts", WebhookURL: srv.URL}}),
+	)
+	require.NoError(t, err)
+
+	err = svc.Send(context.Background(), &domain.FormSubmission{FormID: "hook-key", Email: "a@b.com", Subject: "s", Content: "c"})
+	require.Error(t, err, "a webhook-only form must fail when the webhook rejects the request")
 }
 
 func TestNewUnknownTemplate(t *testing.T) {

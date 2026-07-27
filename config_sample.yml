@@ -17,3 +17,5 @@ forms:
         # template: contact
         # Optional: subject line, rendered as a text/template. Omit for the default "New submission with subject: {{.Subject}}".
         # subject: "New contact form submission from {{.Name}}"
+        # Optional: POST each submission as JSON to this URL (Slack/Discord/Zapier/n8n, etc.). A form needs at least one of 'to_email' or 'webhook_url'.
+        # webhook_url: https://example.com/webhook

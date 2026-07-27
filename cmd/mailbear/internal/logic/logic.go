@@ -85,17 +85,29 @@ func New(logger zerolog.Logger, opts ...Option) (*Service, error) {
 		opt(s)
 	}
 
-	if s.settings.SMTP.Host == "" {
-		return nil, fmt.Errorf("smtp host must be set")
-	}
-	if s.settings.SMTP.Port == 0 {
-		return nil, fmt.Errorf("smtp port must be set")
-	}
-	if s.settings.SMTP.FromEmail == "" {
-		return nil, fmt.Errorf("smtp from email must be set")
-	}
 	if len(s.forms) == 0 {
 		return nil, fmt.Errorf("expected to have at least one form")
+	}
+
+	// SMTP is only required when at least one form actually delivers by email;
+	// a webhook-only deployment needs no mail server.
+	needsEmail := false
+	for _, form := range s.forms {
+		if len(form.ToEmail) > 0 {
+			needsEmail = true
+			break
+		}
+	}
+	if needsEmail {
+		if s.settings.SMTP.Host == "" {
+			return nil, fmt.Errorf("smtp host must be set")
+		}
+		if s.settings.SMTP.Port == 0 {
+			return nil, fmt.Errorf("smtp port must be set")
+		}
+		if s.settings.SMTP.FromEmail == "" {
+			return nil, fmt.Errorf("smtp from email must be set")
+		}
 	}
 
 	templates, err := loadTemplates(s.templatesDir)
@@ -146,10 +158,12 @@ func (s *Service) TurnstileEnabled() bool {
 	return s.settings.TurnstileSecret != ""
 }
 
-// Send renders the form's subject and body templates and delivers the email to the
-// form's recipients. When the template has a text part, a multipart/alternative
-// (text + HTML) message is sent; otherwise it is HTML-only.
-func (s *Service) Send(_ context.Context, submission *domain.FormSubmission) error {
+// Send delivers a submission over the form's configured channels: email (when
+// to_email is set) and/or a webhook (when webhook_url is set). Email is the
+// primary channel — when it is configured, a failure fails the whole request.
+// A webhook is required only when it is the sole channel; otherwise a webhook
+// failure is logged but does not fail a submission that already went out by email.
+func (s *Service) Send(ctx context.Context, submission *domain.FormSubmission) error {
 	form := s.FormByKey(submission.FormID)
 	if form == nil {
 		return fmt.Errorf("form does not exist")
@@ -160,6 +174,41 @@ func (s *Service) Send(_ context.Context, submission *domain.FormSubmission) err
 		return fmt.Errorf("no mailer configured for form %q", form.Key)
 	}
 
+	hasEmail := len(form.ToEmail) > 0
+	hasWebhook := form.WebhookURL != ""
+
+	if hasEmail {
+		if err := s.sendEmail(form, mailer, submission); err != nil {
+			return err
+		}
+		formSubmissionsCounter.With(prometheus.Labels{"form": form.HumanReadableName}).Add(1)
+	}
+
+	if hasWebhook {
+		if err := s.sendWebhook(ctx, form, submission); err != nil {
+			webhookDeliveriesCounter.With(prometheus.Labels{"form": form.HumanReadableName, "outcome": "failure"}).Add(1)
+			if hasEmail {
+				// The email already went out — don't fail the request over a
+				// best-effort secondary channel.
+				s.logger.Error().Err(err).Str("form", form.HumanReadableName).Msg("webhook delivery failed")
+			} else {
+				return err
+			}
+		} else {
+			webhookDeliveriesCounter.With(prometheus.Labels{"form": form.HumanReadableName, "outcome": "success"}).Add(1)
+			if !hasEmail {
+				formSubmissionsCounter.With(prometheus.Labels{"form": form.HumanReadableName}).Add(1)
+			}
+		}
+	}
+
+	return nil
+}
+
+// sendEmail renders the form's subject and body templates and delivers the email
+// to the form's recipients. When the template has a text part, a
+// multipart/alternative (text + HTML) message is sent; otherwise it is HTML-only.
+func (s *Service) sendEmail(form *domain.Form, mailer *formMailer, submission *domain.FormSubmission) error {
 	data := domain.TemplateData{
 		Name:     submission.Name,
 		Email:    submission.Email,
@@ -204,8 +253,6 @@ func (s *Service) Send(_ context.Context, submission *domain.FormSubmission) err
 	if err := dialer.DialAndSend(msg); err != nil {
 		return errors.Wrap(err, "couldn't send the email")
 	}
-
-	formSubmissionsCounter.With(prometheus.Labels{"form": form.HumanReadableName}).Add(1)
 
 	return nil
 }

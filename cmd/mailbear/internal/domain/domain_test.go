@@ -47,6 +47,29 @@ func TestFormValidateInvalid(t *testing.T) {
 	}
 }
 
+func TestFormValidateWebhookOnly(t *testing.T) {
+	form := domain.Form{
+		Key:            "hook",
+		AllowedDomains: []string{"example.com"},
+		WebhookURL:     "https://hooks.example.com/abc",
+	}
+	require.NoError(t, form.Validate(), "a webhook-only form (no to_email) should be valid")
+}
+
+func TestFormValidateNoChannel(t *testing.T) {
+	form := domain.Form{Key: "x", AllowedDomains: []string{"example.com"}}
+	require.Error(t, form.Validate(), "a form with neither to_email nor webhook_url is invalid")
+}
+
+func TestFormValidateBadWebhookURL(t *testing.T) {
+	form := domain.Form{
+		Key:            "x",
+		AllowedDomains: []string{"example.com"},
+		WebhookURL:     "not-a-url",
+	}
+	require.Error(t, form.Validate(), "a non-http(s) webhook_url is invalid")
+}
+
 func TestOriginDomainAllowed(t *testing.T) {
 	form := domain.Form{AllowedDomains: []string{"allowed.tld", "another.allowed.tld"}}
 	require.True(t, form.OriginDomainAllowed("http://allowed.tld"), "allowed domain")

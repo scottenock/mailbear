@@ -58,6 +58,10 @@ type Form struct {
 	// Subject is an optional text/template string for the email subject line. Empty
 	// means the default subject ("New submission with subject: {{.Subject}}").
 	Subject string `yaml:"subject"`
+
+	// WebhookURL, when set, receives each submission as a JSON POST. A form may
+	// configure to_email, webhook_url, or both.
+	WebhookURL string `yaml:"webhook_url"`
 }
 
 // TemplateData is the data made available to subject and body templates.
@@ -77,12 +81,18 @@ func (form *Form) Validate() error {
 	if len(form.AllowedDomains) == 0 {
 		return fmt.Errorf("form should have at least one allowed domain in 'allowed_domains'")
 	}
-	if len(form.ToEmail) == 0 {
-		return fmt.Errorf("form should have at least one recipient email address in 'to_email'")
+	if len(form.ToEmail) == 0 && form.WebhookURL == "" {
+		return fmt.Errorf("form must have at least one recipient in 'to_email' or a 'webhook_url'")
 	}
 	for _, email := range form.ToEmail {
 		if err := checkmail.ValidateFormat(email); err != nil {
 			return fmt.Errorf("invalid email address %q in 'to_email'", email)
+		}
+	}
+	if form.WebhookURL != "" {
+		u, err := url.Parse(form.WebhookURL)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			return fmt.Errorf("invalid 'webhook_url' %q: must be an http(s) URL", form.WebhookURL)
 		}
 	}
 	return nil
