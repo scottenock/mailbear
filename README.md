@@ -372,12 +372,13 @@ A Grafana dashboard for these metrics is available here: [./grafana/dashboard.js
 
 ## Acknowledgements
 
-* [github.com/labstack/echo](https://github.com/labstack/echo)
-* [github.com/sirupsen/logrus](https://github.com/sirupsen/logrus)
+* [github.com/spf13/cobra](https://github.com/spf13/cobra)
+* [github.com/go-chi/chi](https://github.com/go-chi/chi)
+* [github.com/go-chi/httprate](https://github.com/go-chi/httprate)
+* [github.com/rs/zerolog](https://github.com/rs/zerolog)
 * [github.com/go-yaml/yaml](https://github.com/go-yaml/yaml)
 * [github.com/go-mail/mail](https://github.com/go-mail/mail)
 * [github.com/badoux/checkmail](https://github.com/badoux/checkmail)
-* [github.com/globocom/echo-prometheus](https://github.com/globocom/echo-prometheus)
 * [github.com/prometheus/client_golang](https://github.com/prometheus/client_golang)
 
 

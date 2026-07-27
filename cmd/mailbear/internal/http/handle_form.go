@@ -1,30 +1,35 @@
 package http
 
 import (
+	"encoding/json"
 	"net/http"
+	"strings"
 
-	"github.com/labstack/echo/v4"
+	"github.com/go-chi/chi/v5"
 	"github.com/laputalabs/mailbear/cmd/mailbear/internal/domain"
 )
 
-func (s *Server) handleForm(c echo.Context) error {
-	formID := c.Param("id")
+func (s *Server) handleForm(w http.ResponseWriter, r *http.Request) {
+	formID := chi.URLParam(r, "id")
 
 	// check if form exists
 	form := s.mailer.FormByKey(formID)
 	if form == nil {
-		return c.JSON(http.StatusNotFound, response("the given form does not exist"))
+		writeJSON(w, http.StatusNotFound, "the given form does not exist")
+		return
 	}
 
-	// get form data from body
-	data := &domain.FormSubmission{FormID: formID}
-	if err := c.Bind(data); err != nil {
-		return c.JSON(http.StatusBadRequest, response(err.Error()))
+	// parse form data from the body (JSON or form-encoded)
+	data, err := bindSubmission(r, formID)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, err.Error())
+		return
 	}
 
 	// validate form data
 	if err := data.Validate(); err != nil {
-		return c.JSON(http.StatusBadRequest, response(err.Error()))
+		writeJSON(w, http.StatusBadRequest, err.Error())
+		return
 	}
 
 	// honeypot: a legitimate front-end leaves this hidden field empty. If it's
@@ -32,34 +37,68 @@ func (s *Server) handleForm(c echo.Context) error {
 	// but drop the submission without sending mail.
 	if data.Honeypot != "" {
 		s.logger.Warn().Str("form", data.FormID).Msg("honeypot triggered; dropping submission")
-		return c.JSON(http.StatusOK, response("form was submitted successfully"))
+		writeJSON(w, http.StatusOK, "form was submitted successfully")
+		return
 	}
 
 	// check if domain allowed (defense in depth; the Origin header is only
 	// enforced by browsers, so this is not a substitute for the checks below)
-	origin := c.Request().Header.Get("Origin")
-	if !form.OriginDomainAllowed(origin) {
-		return c.JSON(http.StatusForbidden, response("you're not allowed to send from this domain"))
+	if !form.OriginDomainAllowed(r.Header.Get("Origin")) {
+		writeJSON(w, http.StatusForbidden, "you're not allowed to send from this domain")
+		return
 	}
 
 	// captcha: when Turnstile is configured, verify the token server-side. This
 	// is the real gate against non-browser abuse, since a script can forge Origin.
 	if s.mailer.TurnstileEnabled() {
-		ok, err := s.mailer.VerifyTurnstile(c.Request().Context(), data.TurnstileToken, c.RealIP())
+		ok, err := s.mailer.VerifyTurnstile(r.Context(), data.TurnstileToken, realIP(r))
 		if err != nil {
 			s.logger.Error().Err(err).Str("form", data.FormID).Msg("turnstile verification failed to complete")
-			return c.JSON(http.StatusBadGateway, response("couldn't verify the captcha"))
+			writeJSON(w, http.StatusBadGateway, "couldn't verify the captcha")
+			return
 		}
 		if !ok {
-			return c.JSON(http.StatusForbidden, response("captcha verification failed"))
+			writeJSON(w, http.StatusForbidden, "captcha verification failed")
+			return
 		}
 	}
 
 	// send the mail
-	if err := s.mailer.Send(c.Request().Context(), data); err != nil {
+	if err := s.mailer.Send(r.Context(), data); err != nil {
 		s.logger.Error().Err(err).Str("form", data.FormID).Msg("failed to send form submission email")
-		return c.JSON(http.StatusInternalServerError, response("couldn't send the mail"))
+		writeJSON(w, http.StatusInternalServerError, "couldn't send the mail")
+		return
 	}
 
-	return c.JSON(http.StatusOK, response("form was submitted successfully"))
+	writeJSON(w, http.StatusOK, "form was submitted successfully")
+}
+
+// bindSubmission reads a submission from the request body, supporting both JSON
+// and form-urlencoded payloads (matching what browser front-ends send).
+func bindSubmission(r *http.Request, formID string) (*domain.FormSubmission, error) {
+	data := &domain.FormSubmission{FormID: formID}
+
+	contentType := r.Header.Get("Content-Type")
+	if i := strings.Index(contentType, ";"); i >= 0 {
+		contentType = contentType[:i]
+	}
+
+	switch strings.TrimSpace(contentType) {
+	case "application/json":
+		if err := json.NewDecoder(r.Body).Decode(data); err != nil {
+			return nil, err
+		}
+	default:
+		if err := r.ParseForm(); err != nil {
+			return nil, err
+		}
+		data.Name = r.PostForm.Get("name")
+		data.Email = r.PostForm.Get("email")
+		data.Subject = r.PostForm.Get("subject")
+		data.Content = r.PostForm.Get("content")
+		data.Honeypot = r.PostForm.Get("_gotcha")
+		data.TurnstileToken = r.PostForm.Get("cf-turnstile-response")
+	}
+
+	return data, nil
 }

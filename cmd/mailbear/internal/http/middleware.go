@@ -1,66 +1,93 @@
 package http
 
 import (
+	"net"
 	"net/http"
-	"strconv"
+	"strings"
 	"time"
 
-	"github.com/labstack/echo/v4"
-	echomw "github.com/labstack/echo/v4/middleware"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/rs/zerolog"
-	"github.com/ulule/limiter/v3"
-	"github.com/ulule/limiter/v3/drivers/store/memory"
 )
 
-// rateLimitMiddleware limits requests per client IP over the given period.
-// Adapted from https://gitter.im/labstack/echo?at=5a90e681a2194eb80da6faff
-func rateLimitMiddleware(period time.Duration, limit int64) echo.MiddlewareFunc {
-	rate := limiter.Rate{Period: period, Limit: limit}
-	instance := limiter.New(memory.NewStore(), rate)
-
-	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			context, err := instance.Get(c.Request().Context(), c.RealIP())
-			if err != nil {
-				// On limiter backend errors, fail open and let the request through.
-				return next(c)
-			}
-
-			h := c.Response().Header()
-			h.Add("X-RateLimit-Limit", strconv.FormatInt(context.Limit, 10))
-			h.Add("X-RateLimit-Remaining", strconv.FormatInt(context.Remaining, 10))
-			h.Add("X-RateLimit-Reset", strconv.FormatInt(context.Reset, 10))
-
-			if context.Reached {
-				return c.JSON(http.StatusTooManyRequests, response("rate limit exceeded"))
-			}
-
-			return next(c)
-		}
+// maxBytesMiddleware caps the request body size to guard against a client sending
+// an arbitrarily large body and exhausting server memory.
+func maxBytesMiddleware(limit int64) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			r.Body = http.MaxBytesReader(w, r.Body, limit)
+			next.ServeHTTP(w, r)
+		})
 	}
 }
 
 // requestLoggerMiddleware logs each request via zerolog.
-func requestLoggerMiddleware(logger zerolog.Logger) echo.MiddlewareFunc {
-	return echomw.RequestLoggerWithConfig(echomw.RequestLoggerConfig{
-		LogStatus:   true,
-		LogMethod:   true,
-		LogURI:      true,
-		LogRemoteIP: true,
-		LogLatency:  true,
-		LogError:    true,
-		LogValuesFunc: func(_ echo.Context, v echomw.RequestLoggerValues) error {
-			evt := logger.Info()
-			if v.Error != nil {
-				evt = logger.Error().Err(v.Error)
-			}
-			evt.Str("method", v.Method).
-				Str("uri", v.URI).
-				Int("status", v.Status).
-				Str("remote_ip", v.RemoteIP).
-				Dur("latency", v.Latency).
-				Msg("request")
-			return nil
-		},
-	})
+func requestLoggerMiddleware(logger zerolog.Logger) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
+			start := time.Now()
+
+			defer func() {
+				evt := logger.Info()
+				if ww.Status() >= http.StatusInternalServerError {
+					evt = logger.Error()
+				}
+				evt.Str("method", r.Method).
+					Str("uri", r.RequestURI).
+					Int("status", ww.Status()).
+					Str("remote_ip", realIP(r)).
+					Dur("latency", time.Since(start)).
+					Msg("request")
+			}()
+
+			next.ServeHTTP(ww, r)
+		})
+	}
+}
+
+// realIP resolves the client IP. It trusts X-Forwarded-For only when the immediate
+// connection comes from a loopback/link-local/private-network address (i.e. a
+// reverse proxy on the same host or private network), walking the chain back to
+// the first untrusted hop. This keeps the rate limiter working behind a local
+// reverse proxy while discarding values a client tries to spoof further up.
+func realIP(r *http.Request) string {
+	directIP := directRemoteIP(r)
+
+	xff := r.Header.Get("X-Forwarded-For")
+	if xff == "" {
+		return directIP
+	}
+
+	ip := net.ParseIP(directIP)
+	if ip == nil || !trustedProxy(ip) {
+		return directIP
+	}
+
+	parts := strings.Split(xff, ",")
+	for i := len(parts) - 1; i >= 0; i-- {
+		candidate := net.ParseIP(strings.TrimSpace(parts[i]))
+		if candidate == nil {
+			// Unparseable entry: can't trust the rest of the chain.
+			return directIP
+		}
+		if !trustedProxy(candidate) {
+			return candidate.String()
+		}
+	}
+
+	// All entries are trusted: return the furthest (leftmost) as a best effort.
+	return strings.TrimSpace(parts[0])
+}
+
+func directRemoteIP(r *http.Request) string {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
+}
+
+func trustedProxy(ip net.IP) bool {
+	return ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsPrivate()
 }
