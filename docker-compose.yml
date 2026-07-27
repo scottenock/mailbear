@@ -24,3 +24,8 @@ services:
       - ./config.yml:/mailbear/config.yml
       # Mount a directory of <name>.html / <name>.txt templates (see TEMPLATES_DIR):
       # - ./templates:/mailbear/templates
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:1234/healthz"]
+      interval: 30s
+      timeout: 3s
+      retries: 3

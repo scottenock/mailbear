@@ -420,6 +420,18 @@ A Grafana dashboard for these metrics is available here: [./grafana/dashboard.js
 [![](grafana/dashboard_small.png)](grafana/dashboard.png)
 
 
+## Health Checks
+
+MailBear exposes two unauthenticated probe endpoints on the API port for load
+balancers and Kubernetes liveness/readiness probes:
+
+- `GET /healthz` — liveness
+- `GET /readyz` — readiness
+
+Both return `200 OK` when the server is serving. They bypass the rate limiter and
+request logging, so probing them frequently is safe.
+
+
 ## Acknowledgements
 
 * [github.com/spf13/cobra](https://github.com/spf13/cobra)

@@ -85,6 +85,22 @@ func TestWelcome(t *testing.T) {
 	require.Contains(t, rec.Body.String(), "mail bear")
 }
 
+func TestHealthEndpoints(t *testing.T) {
+	s := newTestServer(&fakeMailer{form: testForm()}, 1000)
+	for _, path := range []string{"/healthz", "/readyz"} {
+		rec := do(s, httptest.NewRequest(http.MethodGet, path, nil))
+		require.Equal(t, http.StatusOK, rec.Code, path)
+	}
+}
+
+func TestHealthNotRateLimited(t *testing.T) {
+	s := newTestServer(&fakeMailer{form: testForm()}, 1) // 1 req/min would trip normal routes
+	for i := range 5 {
+		rec := do(s, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+		require.Equal(t, http.StatusOK, rec.Code, "probe %d should not be rate limited", i)
+	}
+}
+
 func TestHandleFormUnknownForm(t *testing.T) {
 	m := &fakeMailer{form: testForm()}
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/form/nope", strings.NewReader(validJSON))

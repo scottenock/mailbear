@@ -45,23 +45,31 @@ func New(logger zerolog.Logger, mailer domain.Mailer, httpAddress, metricsAddr s
 	}
 
 	router := chi.NewRouter()
-	router.Use(maxBytesMiddleware(maxBodyBytes))
-	router.Use(requestLoggerMiddleware(s.logger))
-	router.Use(httprate.LimitBy(
-		rateLimit,
-		rateLimitWindow,
-		func(r *http.Request) (string, error) { return realIP(r), nil },
-		httprate.WithLimitHandler(func(w http.ResponseWriter, _ *http.Request) {
-			writeJSON(w, http.StatusTooManyRequests, "rate limit exceeded")
-		}),
-	))
-	router.Use(cors.Handler(cors.Options{AllowedOrigins: []string{"*"}}))
 
-	router.Route("/api/v1", func(r chi.Router) {
-		r.Get("/", func(w http.ResponseWriter, _ *http.Request) {
-			writeJSON(w, http.StatusOK, "Welcome to mail bear! 🐻")
+	// Liveness/readiness probes sit outside the middleware group so frequent
+	// probing neither trips the rate limiter nor spams the request log.
+	router.Get("/healthz", handleHealth)
+	router.Get("/readyz", handleHealth)
+
+	router.Group(func(r chi.Router) {
+		r.Use(maxBytesMiddleware(maxBodyBytes))
+		r.Use(requestLoggerMiddleware(s.logger))
+		r.Use(httprate.LimitBy(
+			rateLimit,
+			rateLimitWindow,
+			func(req *http.Request) (string, error) { return realIP(req), nil },
+			httprate.WithLimitHandler(func(w http.ResponseWriter, _ *http.Request) {
+				writeJSON(w, http.StatusTooManyRequests, "rate limit exceeded")
+			}),
+		))
+		r.Use(cors.Handler(cors.Options{AllowedOrigins: []string{"*"}}))
+
+		r.Route("/api/v1", func(r chi.Router) {
+			r.Get("/", func(w http.ResponseWriter, _ *http.Request) {
+				writeJSON(w, http.StatusOK, "Welcome to mail bear! 🐻")
+			})
+			r.Post("/form/{id}", s.handleForm)
 		})
-		r.Post("/form/{id}", s.handleForm)
 	})
 
 	s.api = newHTTPServer(httpAddress, router)
@@ -71,6 +79,14 @@ func New(logger zerolog.Logger, mailer domain.Mailer, httpAddress, metricsAddr s
 	s.metrics = newHTTPServer(metricsAddr, metricsMux)
 
 	return s
+}
+
+// handleHealth serves the liveness and readiness probes. mailbear has no
+// request-time dependency to check (config and templates are validated at
+// startup, SMTP is dialed per submission), so readiness mirrors liveness: if the
+// process is serving, it is ready.
+func handleHealth(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, "ok")
 }
 
 // newHTTPServer builds an http.Server with hardened timeouts (guarding against
