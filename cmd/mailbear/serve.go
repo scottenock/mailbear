@@ -30,6 +30,7 @@ func newServeCMD() *cobra.Command {
 				log,
 				logic.WithSettings(settings()),
 				logic.WithForms(forms),
+				logic.WithTemplatesDir(templatesDir),
 			)
 			if err != nil {
 				log.Fatal().Err(err).Msg("Could not initialize mailer")

@@ -1,0 +1,8 @@
+<p>Hello,</p>
+<p>Someone has just submitted a new form on your website.</p>
+<p>Kind regards,<br>MailBear</p>
+<p><br></p>
+<p><b>Name:</b> {{ .Name }}</p>
+<p><b>Email:</b> {{ .Email }}</p>
+<p><b>Subject:</b> {{ .Subject }}</p>
+<p><b>Content:</b><br><br>{{ nl2br .Content }}</p>

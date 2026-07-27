@@ -133,8 +133,8 @@ MailBear applies these defences, from cheapest to strongest:
 
 ### Enabling Turnstile
 
-1. Create a Turnstile widget in the Cloudflare dashboard and copy the **secret
-   key** into `global.turnstile.secret`. When the secret is empty, Turnstile
+1. Create a Turnstile widget in the Cloudflare dashboard and pass the **secret
+   key** via `--turnstileSecret` / `TURNSTILE_SECRET`. When it is empty, Turnstile
    verification is disabled and only the honeypot + rate limiting apply.
 2. Add the Turnstile widget to your form's front-end and submit the resulting
    token as `cf-turnstile-response` (the widget's default field name):
@@ -169,6 +169,56 @@ curl \
     -d '{"name":"Joe","email":"joe@example.com", "subject": "Some subject", "content": "Maecenas faucibus mollis interdum. Sed posuere consectetur est at lobortis."}'
 ```
 
+
+
+## Custom Email Templates
+
+By default MailBear sends a built-in email. You can give each form its own email
+by pointing `--templatesDir` / `TEMPLATES_DIR` at a directory of template files:
+
+```
+templates/
+    default.html      # overrides the built-in default (optional)
+    contact.html      # used by forms with `template: contact`
+    contact.txt       # optional plain-text part
+```
+
+- A template is a pair of files named `<name>.html` and `<name>.txt`. The `.html`
+  part is **required**; the `.txt` part is **optional**.
+- When both exist, the email is sent as **multipart/alternative** (plain-text +
+  HTML). When only `.html` exists, it is HTML-only.
+- A form selects its template with the `template:` field in `config.yml` (the
+  value is the file `<name>`). Forms with no `template` use the built-in
+  `default`, which you can override by placing your own `default.html` in the
+  directory.
+- The subject line is set per form with the optional `subject:` field, rendered as
+  a Go `text/template`.
+
+Templates are Go templates. HTML templates use
+[`html/template`](https://pkg.go.dev/html/template) (which auto-escapes all
+values, so user input can't inject markup); text templates use
+[`text/template`](https://pkg.go.dev/text/template). Available variables:
+
+| Variable | Description |
+|----------|-------------|
+| `{{ .Name }}` | Submitter's name |
+| `{{ .Email }}` | Submitter's email |
+| `{{ .Subject }}` | Submitter's subject |
+| `{{ .Content }}` | Submitted message |
+| `{{ .FormName }}` | The form's config key (human-readable name) |
+
+A helper `{{ nl2br .Content }}` is available in HTML templates to render newlines
+as `<br>` (it escapes the content first, so it stays injection-safe).
+
+Example `contact.html`:
+
+```html
+<p>New message from <b>{{ .Name }}</b> ({{ .Email }}):</p>
+<p>{{ nl2br .Content }}</p>
+```
+
+Templates are loaded and validated at startup, so a missing template file or a
+syntax error fails fast rather than at send time.
 
 
 ## Examples

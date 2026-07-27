@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/laputalabs/mailbear/cmd/mailbear/internal/domain"
@@ -102,19 +103,33 @@ func TestVerifyTurnstileRejected(t *testing.T) {
 	require.False(t, ok, "rejected token should fail")
 }
 
-func TestBuildMailBodyEscapesHTML(t *testing.T) {
-	sub := &domain.FormSubmission{
-		Name:    "<script>alert(1)</script>",
-		Email:   "a@b.com",
-		Subject: "Hi & bye",
-		Content: "line1\nline2 <b>bold</b>",
-	}
+func TestSubjectTemplateRender(t *testing.T) {
+	svc, err := New(
+		zerolog.Nop(),
+		WithSettings(domain.Settings{SMTP: domain.SMTP{Host: "h", Port: 25, FromEmail: "f@x"}}),
+		WithForms([]*domain.Form{{Key: "k", HumanReadableName: "contact", Subject: "New {{.FormName}} from {{.Name}}"}}),
+	)
+	require.NoError(t, err)
 
-	body := buildMailBody(sub)
+	var buf strings.Builder
+	require.NoError(t, svc.mailers["k"].subject.Execute(&buf, domain.TemplateData{Name: "Joe", FormName: "contact"}))
+	require.Equal(t, "New contact from Joe", buf.String())
+}
 
-	require.NotContains(t, body, "<script>", "script tag must be escaped")
-	require.Contains(t, body, "&lt;script&gt;")
-	require.Contains(t, body, "Hi &amp; bye")
-	require.Contains(t, body, "line1<br>line2", "newlines become <br> after escaping")
-	require.NotContains(t, body, "<b>bold</b>", "user content must not inject raw HTML")
+func TestNewUnknownTemplate(t *testing.T) {
+	_, err := New(
+		zerolog.Nop(),
+		WithSettings(domain.Settings{SMTP: domain.SMTP{Host: "h", Port: 25, FromEmail: "f@x"}}),
+		WithForms([]*domain.Form{{Key: "k", Template: "does-not-exist"}}),
+	)
+	require.Error(t, err, "unknown template should fail at startup")
+}
+
+func TestNewBadSubjectTemplate(t *testing.T) {
+	_, err := New(
+		zerolog.Nop(),
+		WithSettings(domain.Settings{SMTP: domain.SMTP{Host: "h", Port: 25, FromEmail: "f@x"}}),
+		WithForms([]*domain.Form{{Key: "k", Subject: "{{ .Name "}}),
+	)
+	require.Error(t, err, "malformed subject template should fail at startup")
 }

@@ -50,6 +50,23 @@ type Form struct {
 	Key               string   `yaml:"key"`
 	AllowedDomains    []string `yaml:"allowed_domains"`
 	ToEmail           []string `yaml:"to_email"`
+
+	// Template is the name of the body template to use (a <name>.html / <name>.txt
+	// pair). Empty means the built-in "default" template.
+	Template string `yaml:"template"`
+
+	// Subject is an optional text/template string for the email subject line. Empty
+	// means the default subject ("New submission with subject: {{.Subject}}").
+	Subject string `yaml:"subject"`
+}
+
+// TemplateData is the data made available to subject and body templates.
+type TemplateData struct {
+	Name     string
+	Email    string
+	Subject  string
+	Content  string
+	FormName string
 }
 
 // Validate checks that a form has the required values.

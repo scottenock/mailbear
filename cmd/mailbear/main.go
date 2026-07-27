@@ -17,6 +17,7 @@ var (
 
 	// Persistent flags.
 	configFile   string
+	templatesDir string
 	httpAddress  string
 	metricsAddr  string
 	rateLimit    int
@@ -62,6 +63,7 @@ func newRootCMD() *cobra.Command {
 
 	f := cmd.PersistentFlags()
 	f.StringVar(&configFile, "config", getEnvFallback("CONFIG_FILE", "config.yml"), "Path to the forms config file")
+	f.StringVar(&templatesDir, "templatesDir", getEnvFallback("TEMPLATES_DIR", ""), "Directory of custom email templates (<name>.html / <name>.txt); empty uses the built-in default")
 	f.StringVar(&httpAddress, "httpAddress", getEnvFallback("HTTP_ADDRESS", ":1234"), "Address the API server listens on")
 	f.StringVar(&metricsAddr, "metricsAddress", getEnvFallback("METRICS_ADDRESS", ":9090"), "Address the Prometheus metrics server listens on")
 	f.IntVar(&rateLimit, "rateLimit", cast.ToInt(getEnvFallback("RATE_LIMIT", "5")), "Max submissions per client IP per minute")

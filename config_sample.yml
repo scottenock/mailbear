@@ -13,3 +13,7 @@ forms:
         to_email:
             - recipient@example.com
             - another-recipient@example.com
+        # Optional: name of a custom template (<name>.html / <name>.txt in the --templatesDir). Omit to use the built-in default template.
+        # template: contact
+        # Optional: subject line, rendered as a text/template. Omit for the default "New submission with subject: {{.Subject}}".
+        # subject: "New contact form submission from {{.Name}}"

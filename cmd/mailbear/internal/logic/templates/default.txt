@@ -1,0 +1,13 @@
+Hello,
+
+Someone has just submitted a new form on your website.
+
+Name: {{ .Name }}
+Email: {{ .Email }}
+Subject: {{ .Subject }}
+
+Content:
+{{ .Content }}
+
+Kind regards,
+MailBear

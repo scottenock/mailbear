@@ -18,5 +18,9 @@ services:
       # SMTP_DISABLE_TLS: "false"
       # TURNSTILE_SECRET: ""
       # RATE_LIMIT: "5"
+      # Uncomment to load custom email templates from the mounted directory:
+      # TEMPLATES_DIR: /mailbear/templates
     volumes:
       - ./config.yml:/mailbear/config.yml
+      # Mount a directory of <name>.html / <name>.txt templates (see TEMPLATES_DIR):
+      # - ./templates:/mailbear/templates
