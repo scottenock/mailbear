@@ -36,6 +36,7 @@ var (
 func main() {
 	rootCMD := newRootCMD()
 	rootCMD.AddCommand(newServeCMD())
+	rootCMD.AddCommand(newValidateCMD())
 
 	if err := rootCMD.Execute(); err != nil {
 		os.Exit(1)
@@ -47,6 +48,9 @@ func newRootCMD() *cobra.Command {
 		Use:     "mailbear",
 		Short:   "MailBear - a self-hosted forms backend",
 		Version: version,
+		// Don't dump usage text when a command returns an error (e.g. a failed
+		// `validate`); the error message alone is what CI wants to see.
+		SilenceUsage: true,
 		PersistentPreRun: func(_ *cobra.Command, _ []string) {
 			level, err := zerolog.ParseLevel(logLevel)
 			if err != nil {

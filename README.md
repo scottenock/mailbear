@@ -45,6 +45,14 @@ Common tasks are wrapped in the `Makefile` (run `make help` for the full list):
 
 MailBear shuts down gracefully on `SIGINT`/`SIGTERM`, draining in-flight requests.
 
+To check a config without starting the server (handy in CI or before a deploy),
+use `validate` — it runs the same checks the server does at startup (parses the
+forms config, loads and parses templates, compiles each form's subject, and
+requires SMTP settings when a form sends email) and exits non-zero on the first
+problem:
+
+    mailbear validate --config config.yml --templatesDir templates/
+
 
 ## Configuration
 
