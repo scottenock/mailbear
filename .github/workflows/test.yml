@@ -6,7 +6,7 @@ on:
       - "go.mod"
       - "go.sum"
   push:
-    branches: [master]
+    branches: [main]
     paths:
       - "**/*.go"
       - "go.mod"
