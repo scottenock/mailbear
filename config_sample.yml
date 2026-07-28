@@ -17,6 +17,8 @@ forms:
         # template: contact
         # Optional: subject line, rendered as a text/template. Omit for the default "New submission with subject: {{.Subject}}".
         # subject: "New contact form submission from {{.Name}}"
+        # Optional: display name on outgoing mail for this form. Omit to use the global SMTP_FROM_NAME. Cosmetic only — the from address is unchanged.
+        # from_name: "Acme Contact Form"
         # Optional: POST each submission as JSON to this URL (Slack/Discord/Zapier/n8n, etc.). A form needs at least one of 'to_email' or 'webhook_url'.
         # webhook_url: https://example.com/webhook
         # Optional: for plain (no-JavaScript) HTML forms, 303-redirect the browser here on success / on error. JSON clients always get JSON.

@@ -100,7 +100,18 @@ forms:
             - example.com
         to_email:
             - recipient@example.com
+        # Optional: display name on this form's outgoing mail (falls back to
+        # SMTP_FROM_NAME). Cosmetic only — the from address is unchanged, so it
+        # has no deliverability impact.
+        from_name: "Acme Contact Form"
 ```
+
+Each form also supports several optional fields covered in their own sections
+below: `template` / `subject` ([Custom Email Templates](#custom-email-templates)),
+`webhook_url` ([Webhook Forwarding](#webhook-forwarding)), `redirect_url` /
+`error_redirect_url` ([Redirect After Submit](#redirect-after-submit-no-javascript-forms)),
+and `autoresponder` ([Autoresponder](#autoresponder)). A full annotated example
+is in [`examples/config.example.yml`](examples/config.example.yml).
 
 
 ## Rate Limiting & Reverse Proxies

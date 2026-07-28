@@ -71,6 +71,11 @@ type Form struct {
 	AllowedDomains    []string `yaml:"allowed_domains"`
 	ToEmail           []string `yaml:"to_email"`
 
+	// FromName overrides the display name on outgoing mail for this form. Empty
+	// falls back to the global from name (SMTP_FROM_NAME). The from address is
+	// always the global one, so this is cosmetic only — no deliverability impact.
+	FromName string `yaml:"from_name"`
+
 	// Template is the name of the body template to use (a <name>.html / <name>.txt
 	// pair). Empty means the built-in "default" template.
 	Template string `yaml:"template"`

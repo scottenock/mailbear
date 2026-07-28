@@ -1,0 +1,66 @@
+# Example MailBear forms configuration.
+#
+# Copy this to `config.yml` (the path passed via --config / CONFIG_FILE) and edit
+# it for your site. This file holds ONLY your forms — operational settings are
+# supplied via flags or environment variables, not here:
+#
+#   SMTP host/credentials ... SMTP_HOST, SMTP_USER, SMTP_PASSWORD, SMTP_FROM_EMAIL
+#   Cloudflare Turnstile ..... TURNSTILE_SECRET
+#   Honeypot field name ...... HONEYPOT_FIELD   (default: verify)
+#   Custom templates dir ..... TEMPLATES_DIR
+#   Submission audit log ..... AUDIT_LOG
+#
+# See the README or `mailbear serve --help` for the full list.
+#
+# Each form is keyed by a human-readable name (used in logs and metrics). The
+# `key` is the secret token that appears in the submission URL
+# (/api/v1/form/<key>) — make it long and unguessable. A form must have at least
+# one of `to_email` or `webhook_url`.
+
+forms:
+  # 1) Simple contact form: emails you, with a custom subject line.
+  contact:
+    key: 3f9c1e7a-8b2d-4c6f-9a10-CHANGE-ME
+    allowed_domains:
+      - example.com
+      - www.example.com
+    to_email:
+      - hello@example.com
+    subject: "New contact from {{.Name}}"
+    # Display name your client sees in their inbox (falls back to SMTP_FROM_NAME).
+    from_name: "Acme Contact Form"
+
+  # 2) Support form: emails the team, also pings Slack, and sends the submitter a
+  #    confirmation. `template`/autoresponder `template` name files in your
+  #    TEMPLATES_DIR (support.html/.txt, support-ack.html/.txt).
+  support:
+    key: a71b0d54-2e39-4f8c-bb17-CHANGE-ME
+    allowed_domains:
+      - example.com
+    to_email:
+      - support@example.com
+    template: support
+    subject: "[Support] {{.Subject}}"
+    webhook_url: https://hooks.slack.com/services/T000/B000/CHANGE-ME
+    autoresponder:
+      template: support-ack
+      subject: "We got your message, {{.Name}}"
+
+  # 3) Webhook-only form: no email at all, just forwards submissions to a workflow
+  #    tool. Needs no SMTP configuration.
+  automation:
+    key: c0ffee00-1234-5678-9abc-CHANGE-ME
+    allowed_domains:
+      - example.com
+    webhook_url: https://n8n.example.com/webhook/CHANGE-ME
+
+  # 4) Plain (no-JavaScript) HTML form: the browser is 303-redirected to a
+  #    thank-you page on success and an error page on failure.
+  feedback:
+    key: d1a9f3b2-6c74-4e05-8f21-CHANGE-ME
+    allowed_domains:
+      - example.com
+    to_email:
+      - feedback@example.com
+    redirect_url: https://example.com/thanks
+    error_redirect_url: https://example.com/sorry

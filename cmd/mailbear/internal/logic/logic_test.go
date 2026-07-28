@@ -168,6 +168,21 @@ func TestSendWebhookOnlyFailsOnNon2xx(t *testing.T) {
 	require.Error(t, err, "a webhook-only form must fail when the webhook rejects the request")
 }
 
+func TestFromNameResolution(t *testing.T) {
+	svc, err := New(
+		zerolog.Nop(),
+		WithSettings(domain.Settings{SMTP: domain.SMTP{Host: "h", Port: 25, FromEmail: "f@x", FromName: "Global"}}),
+		WithForms([]*domain.Form{
+			{Key: "a", ToEmail: []string{"a@b.com"}},
+			{Key: "b", ToEmail: []string{"b@b.com"}, FromName: "Acme Contact Form"},
+		}),
+	)
+	require.NoError(t, err)
+
+	require.Equal(t, "Global", svc.fromName(svc.FormByKey("a")), "falls back to the global from name")
+	require.Equal(t, "Acme Contact Form", svc.fromName(svc.FormByKey("b")), "uses the per-form from name")
+}
+
 func TestNewAutoresponder(t *testing.T) {
 	svc, err := New(
 		zerolog.Nop(),

@@ -61,6 +61,7 @@ type autoresponder struct {
 // emailSpec is a single email to render and deliver.
 type emailSpec struct {
 	to          []string
+	fromName    string
 	replyToAddr string
 	replyToName string
 	subject     *textTmpl.Template
@@ -309,6 +310,7 @@ func templateData(form *domain.Form, submission *domain.FormSubmission) domain.T
 func (s *Service) sendEmail(form *domain.Form, mailer *formMailer, data domain.TemplateData, submission *domain.FormSubmission) error {
 	return s.deliver(emailSpec{
 		to:          form.ToEmail,
+		fromName:    s.fromName(form),
 		replyToAddr: submission.Email,
 		replyToName: submission.Name,
 		subject:     mailer.subject,
@@ -316,13 +318,23 @@ func (s *Service) sendEmail(form *domain.Form, mailer *formMailer, data domain.T
 	}, data)
 }
 
+// fromName returns the display name for a form's outgoing mail: the form's own
+// from_name when set, otherwise the global default.
+func (s *Service) fromName(form *domain.Form) string {
+	if form.FromName != "" {
+		return form.FromName
+	}
+	return s.settings.SMTP.FromName
+}
+
 // sendAutoresponder delivers the confirmation email to the submitter. Reply-To is
 // set to the form's first recipient (when any) so replies reach the owner.
 func (s *Service) sendAutoresponder(form *domain.Form, ar *autoresponder, data domain.TemplateData, submission *domain.FormSubmission) error {
 	spec := emailSpec{
-		to:      []string{submission.Email},
-		subject: ar.subject,
-		body:    ar.body,
+		to:       []string{submission.Email},
+		fromName: s.fromName(form),
+		subject:  ar.subject,
+		body:     ar.body,
 	}
 	if len(form.ToEmail) > 0 {
 		spec.replyToAddr = form.ToEmail[0]
@@ -344,7 +356,7 @@ func (s *Service) deliver(spec emailSpec, data domain.TemplateData) error {
 	}
 
 	msg := mail.NewMessage()
-	msg.SetHeader("From", s.settings.SMTP.FromEmail)
+	msg.SetAddressHeader("From", s.settings.SMTP.FromEmail, spec.fromName)
 	msg.SetHeader("To", spec.to...)
 	if spec.replyToAddr != "" {
 		msg.SetAddressHeader("Reply-To", spec.replyToAddr, spec.replyToName)
