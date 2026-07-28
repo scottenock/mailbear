@@ -62,6 +62,15 @@ type Form struct {
 	// WebhookURL, when set, receives each submission as a JSON POST. A form may
 	// configure to_email, webhook_url, or both.
 	WebhookURL string `yaml:"webhook_url"`
+
+	// RedirectURL, when set, makes browser form posts (non-JSON) receive a 303
+	// redirect here on success instead of a JSON body — for no-JavaScript HTML
+	// forms. JSON/AJAX clients always get JSON.
+	RedirectURL string `yaml:"redirect_url"`
+
+	// ErrorRedirectURL is the 303 target for browser form posts that fail
+	// (validation, spam, delivery). When empty, failures return JSON.
+	ErrorRedirectURL string `yaml:"error_redirect_url"`
 }
 
 // TemplateData is the data made available to subject and body templates.
@@ -89,11 +98,26 @@ func (form *Form) Validate() error {
 			return fmt.Errorf("invalid email address %q in 'to_email'", email)
 		}
 	}
-	if form.WebhookURL != "" {
-		u, err := url.Parse(form.WebhookURL)
-		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-			return fmt.Errorf("invalid 'webhook_url' %q: must be an http(s) URL", form.WebhookURL)
+	for _, u := range []struct{ field, value string }{
+		{"webhook_url", form.WebhookURL},
+		{"redirect_url", form.RedirectURL},
+		{"error_redirect_url", form.ErrorRedirectURL},
+	} {
+		if u.value == "" {
+			continue
 		}
+		if err := validateHTTPURL(u.field, u.value); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// validateHTTPURL checks that raw is a well-formed absolute http(s) URL.
+func validateHTTPURL(field, raw string) error {
+	u, err := url.Parse(raw)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return fmt.Errorf("invalid %q %q: must be an http(s) URL", field, raw)
 	}
 	return nil
 }

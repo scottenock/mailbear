@@ -19,3 +19,6 @@ forms:
         # subject: "New contact form submission from {{.Name}}"
         # Optional: POST each submission as JSON to this URL (Slack/Discord/Zapier/n8n, etc.). A form needs at least one of 'to_email' or 'webhook_url'.
         # webhook_url: https://example.com/webhook
+        # Optional: for plain (no-JavaScript) HTML forms, 303-redirect the browser here on success / on error. JSON clients always get JSON.
+        # redirect_url: https://example.com/thanks
+        # error_redirect_url: https://example.com/oops

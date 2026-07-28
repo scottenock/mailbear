@@ -22,13 +22,13 @@ func (s *Server) handleForm(w http.ResponseWriter, r *http.Request) {
 	// parse form data from the body (JSON or form-encoded)
 	data, err := bindSubmission(r, formID)
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, err.Error())
+		respondError(w, r, form, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	// validate form data
 	if err := data.Validate(); err != nil {
-		writeJSON(w, http.StatusBadRequest, err.Error())
+		respondError(w, r, form, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -37,14 +37,14 @@ func (s *Server) handleForm(w http.ResponseWriter, r *http.Request) {
 	// but drop the submission without sending mail.
 	if data.Honeypot != "" {
 		s.logger.Warn().Str("form", data.FormID).Msg("honeypot triggered; dropping submission")
-		writeJSON(w, http.StatusOK, "form was submitted successfully")
+		respondSuccess(w, r, form)
 		return
 	}
 
 	// check if domain allowed (defense in depth; the Origin header is only
 	// enforced by browsers, so this is not a substitute for the checks below)
 	if !form.OriginDomainAllowed(r.Header.Get("Origin")) {
-		writeJSON(w, http.StatusForbidden, "you're not allowed to send from this domain")
+		respondError(w, r, form, http.StatusForbidden, "you're not allowed to send from this domain")
 		return
 	}
 
@@ -54,11 +54,11 @@ func (s *Server) handleForm(w http.ResponseWriter, r *http.Request) {
 		ok, err := s.mailer.VerifyTurnstile(r.Context(), data.TurnstileToken, realIP(r))
 		if err != nil {
 			s.logger.Error().Err(err).Str("form", data.FormID).Msg("turnstile verification failed to complete")
-			writeJSON(w, http.StatusBadGateway, "couldn't verify the captcha")
+			respondError(w, r, form, http.StatusBadGateway, "couldn't verify the captcha")
 			return
 		}
 		if !ok {
-			writeJSON(w, http.StatusForbidden, "captcha verification failed")
+			respondError(w, r, form, http.StatusForbidden, "captcha verification failed")
 			return
 		}
 	}
@@ -66,11 +66,46 @@ func (s *Server) handleForm(w http.ResponseWriter, r *http.Request) {
 	// send the mail
 	if err := s.mailer.Send(r.Context(), data); err != nil {
 		s.logger.Error().Err(err).Str("form", data.FormID).Msg("failed to send form submission email")
-		writeJSON(w, http.StatusInternalServerError, "couldn't send the mail")
+		respondError(w, r, form, http.StatusInternalServerError, "couldn't send the mail")
 		return
 	}
 
+	respondSuccess(w, r, form)
+}
+
+// respondSuccess redirects a browser form post to the form's redirect_url (303)
+// when configured; otherwise it returns the JSON success body.
+func respondSuccess(w http.ResponseWriter, r *http.Request, form *domain.Form) {
+	if form.RedirectURL != "" && isFormPost(r) {
+		http.Redirect(w, r, form.RedirectURL, http.StatusSeeOther)
+		return
+	}
 	writeJSON(w, http.StatusOK, "form was submitted successfully")
+}
+
+// respondError redirects a browser form post to the form's error_redirect_url
+// (303) when configured; otherwise it returns the JSON error body.
+func respondError(w http.ResponseWriter, r *http.Request, form *domain.Form, status int, message string) {
+	if form.ErrorRedirectURL != "" && isFormPost(r) {
+		http.Redirect(w, r, form.ErrorRedirectURL, http.StatusSeeOther)
+		return
+	}
+	writeJSON(w, status, message)
+}
+
+// isFormPost reports whether the request looks like a plain browser form
+// submission (rather than a JSON/AJAX request), which is what redirects target.
+func isFormPost(r *http.Request) bool {
+	contentType := r.Header.Get("Content-Type")
+	if i := strings.Index(contentType, ";"); i >= 0 {
+		contentType = contentType[:i]
+	}
+	switch strings.TrimSpace(contentType) {
+	case "application/x-www-form-urlencoded", "multipart/form-data":
+		return true
+	default:
+		return false
+	}
 }
 
 // bindSubmission reads a submission from the request body, supporting both JSON

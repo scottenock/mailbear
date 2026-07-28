@@ -229,6 +229,40 @@ Templates are loaded and validated at startup, so a missing template file or a
 syntax error fails fast rather than at send time.
 
 
+## Redirect After Submit (no-JavaScript forms)
+
+A plain HTML form (no JavaScript) that posts straight to MailBear would otherwise
+land the visitor on a page showing the raw JSON response. Set `redirect_url` on
+the form and, for browser form posts, MailBear replies with a `303 See Other` to
+that page on success instead. Add `error_redirect_url` to send failures (bad
+input, spam, delivery errors) to an error page.
+
+```yaml
+forms:
+    contact:
+        key: contact-key
+        allowed_domains: [example.com]
+        to_email: [me@example.com]
+        redirect_url: https://example.com/thanks
+        error_redirect_url: https://example.com/oops   # optional
+```
+
+```html
+<form action="https://mailbear.example.com/api/v1/form/contact-key" method="POST">
+    <input type="email" name="email" required>
+    <input type="text" name="subject" required>
+    <textarea name="content" required></textarea>
+    <button type="submit">Send</button>
+</form>
+```
+
+Redirects apply only to browser form posts (`application/x-www-form-urlencoded` /
+`multipart/form-data`). JSON/AJAX clients always receive a JSON response, so the
+existing integrations are unaffected. When `error_redirect_url` is not set,
+failures fall back to a JSON body. Both URLs are operator config, so there is no
+open-redirect risk from client input.
+
+
 ## Webhook Forwarding
 
 Each form can POST its submissions as JSON to a URL via the `webhook_url` field —

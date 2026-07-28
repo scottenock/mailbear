@@ -70,6 +70,20 @@ func TestFormValidateBadWebhookURL(t *testing.T) {
 	require.Error(t, form.Validate(), "a non-http(s) webhook_url is invalid")
 }
 
+func TestFormValidateRedirectURLs(t *testing.T) {
+	form := domain.Form{
+		Key:              "x",
+		AllowedDomains:   []string{"example.com"},
+		ToEmail:          []string{"a@b.com"},
+		RedirectURL:      "https://example.com/thanks",
+		ErrorRedirectURL: "https://example.com/oops",
+	}
+	require.NoError(t, form.Validate(), "valid http(s) redirect URLs should pass")
+
+	form.ErrorRedirectURL = "javascript:alert(1)"
+	require.Error(t, form.Validate(), "a non-http(s) error_redirect_url is invalid")
+}
+
 func TestOriginDomainAllowed(t *testing.T) {
 	form := domain.Form{AllowedDomains: []string{"allowed.tld", "another.allowed.tld"}}
 	require.True(t, form.OriginDomainAllowed("http://allowed.tld"), "allowed domain")

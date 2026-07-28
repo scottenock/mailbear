@@ -79,6 +79,16 @@ func jsonPost(body string) *http.Request {
 	return req
 }
 
+// formPost builds a browser-style (form-urlencoded) POST with an allowed Origin.
+func formPost(body string) *http.Request {
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/form/contact-key", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Origin", "http://example.com")
+	return req
+}
+
+const validForm = "email=ada@example.com&subject=Hi&content=hello"
+
 func TestWelcome(t *testing.T) {
 	rec := do(newTestServer(&fakeMailer{form: testForm()}, 1000), httptest.NewRequest(http.MethodGet, "/api/v1/", nil))
 	require.Equal(t, http.StatusOK, rec.Code)
@@ -209,6 +219,56 @@ func TestHandleFormRateLimit(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, do(s, jsonPost(validJSON)).Code)
 	require.Equal(t, http.StatusTooManyRequests, do(s, jsonPost(validJSON)).Code)
+}
+
+func TestRedirectOnSuccess(t *testing.T) {
+	form := testForm()
+	form.RedirectURL = "https://example.com/thanks"
+	m := &fakeMailer{form: form}
+
+	rec := do(newTestServer(m, 1000), formPost(validForm))
+	require.Equal(t, http.StatusSeeOther, rec.Code)
+	require.Equal(t, "https://example.com/thanks", rec.Header().Get("Location"))
+	require.Len(t, m.sent, 1)
+}
+
+func TestRedirectHoneypotLooksLikeSuccess(t *testing.T) {
+	form := testForm()
+	form.RedirectURL = "https://example.com/thanks"
+	m := &fakeMailer{form: form}
+
+	rec := do(newTestServer(m, 1000), formPost(validForm+"&_gotcha=bot"))
+	require.Equal(t, http.StatusSeeOther, rec.Code)
+	require.Equal(t, "https://example.com/thanks", rec.Header().Get("Location"))
+	require.Empty(t, m.sent, "honeypot submission is dropped but still redirects to success")
+}
+
+func TestRedirectOnError(t *testing.T) {
+	form := testForm()
+	form.ErrorRedirectURL = "https://example.com/oops"
+	m := &fakeMailer{form: form}
+
+	rec := do(newTestServer(m, 1000), formPost("email=a@b.com&subject=s")) // missing content
+	require.Equal(t, http.StatusSeeOther, rec.Code)
+	require.Equal(t, "https://example.com/oops", rec.Header().Get("Location"))
+	require.Empty(t, m.sent)
+}
+
+func TestRedirectIgnoredForJSONClients(t *testing.T) {
+	form := testForm()
+	form.RedirectURL = "https://example.com/thanks"
+	m := &fakeMailer{form: form}
+
+	rec := do(newTestServer(m, 1000), jsonPost(validJSON))
+	require.Equal(t, http.StatusOK, rec.Code, "AJAX/JSON clients get JSON, never a redirect")
+	require.Empty(t, rec.Header().Get("Location"))
+}
+
+func TestNoRedirectFallsBackToJSON(t *testing.T) {
+	m := &fakeMailer{form: testForm()} // no redirect_url configured
+	rec := do(newTestServer(m, 1000), formPost(validForm))
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Empty(t, rec.Header().Get("Location"))
 }
 
 func TestHandleFormBodyLimit(t *testing.T) {
