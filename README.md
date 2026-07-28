@@ -263,6 +263,38 @@ failures fall back to a JSON body. Both URLs are operator config, so there is no
 open-redirect risk from client input.
 
 
+## Autoresponder
+
+A form can send a confirmation email back to the **submitter** after a successful
+submission. Add an `autoresponder` block referencing its own template (a
+`<name>.html` / `<name>.txt` pair in the `--templatesDir`); the `subject` is
+optional and rendered as a `text/template`:
+
+```yaml
+forms:
+    contact:
+        key: contact-key
+        allowed_domains: [example.com]
+        to_email: [me@example.com]
+        autoresponder:
+            template: contact-ack
+            subject: "Thanks for contacting us, {{.Name}}"
+```
+
+The confirmation uses the same template variables as any other template
+(`{{.Name}}`, `{{.Content}}`, …), goes out from the configured SMTP `from`
+address, and sets `Reply-To` to the form's first recipient so replies reach you.
+It is **best-effort**: the owner notification is sent first, and if the
+confirmation later fails to send, the request still succeeds (so the submitter is
+never prompted to resubmit and re-notify you). Outcomes are counted in
+`mailbear_autoresponder_deliveries_total`.
+
+> An autoresponder emails whatever address the submitter typed, so it can be
+> abused to send mail to arbitrary addresses. It only fires **after** the
+> honeypot, Origin, Turnstile, and rate-limit checks pass — enabling
+> [Turnstile](#spam--abuse-protection) is strongly recommended when using it.
+
+
 ## Webhook Forwarding
 
 Each form can POST its submissions as JSON to a URL via the `webhook_url` field —

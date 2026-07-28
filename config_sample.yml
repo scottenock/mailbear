@@ -22,3 +22,7 @@ forms:
         # Optional: for plain (no-JavaScript) HTML forms, 303-redirect the browser here on success / on error. JSON clients always get JSON.
         # redirect_url: https://example.com/thanks
         # error_redirect_url: https://example.com/oops
+        # Optional: send a confirmation email back to the submitter. 'template' names a <name>.html / <name>.txt pair in the --templatesDir and is required.
+        # autoresponder:
+        #     template: contact-ack
+        #     subject: "Thanks for contacting us, {{.Name}}"

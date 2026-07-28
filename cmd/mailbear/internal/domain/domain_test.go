@@ -84,6 +84,19 @@ func TestFormValidateRedirectURLs(t *testing.T) {
 	require.Error(t, form.Validate(), "a non-http(s) error_redirect_url is invalid")
 }
 
+func TestFormValidateAutoresponderNeedsTemplate(t *testing.T) {
+	form := domain.Form{
+		Key:            "x",
+		AllowedDomains: []string{"example.com"},
+		ToEmail:        []string{"a@b.com"},
+		Autoresponder:  &domain.Autoresponder{Subject: "Thanks"}, // no template
+	}
+	require.Error(t, form.Validate(), "an autoresponder without a template is invalid")
+
+	form.Autoresponder.Template = "ack"
+	require.NoError(t, form.Validate(), "an autoresponder with a template is valid")
+}
+
 func TestOriginDomainAllowed(t *testing.T) {
 	form := domain.Form{AllowedDomains: []string{"allowed.tld", "another.allowed.tld"}}
 	require.True(t, form.OriginDomainAllowed("http://allowed.tld"), "allowed domain")

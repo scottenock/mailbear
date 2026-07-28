@@ -22,6 +22,9 @@ import (
 // not configure its own.
 const defaultSubjectTemplate = "New submission with subject: {{.Subject}}"
 
+// defaultAutoresponderSubject is used when an autoresponder sets no subject.
+const defaultAutoresponderSubject = "Thanks for your submission"
+
 // Ensure Service implements the interface.
 var _ domain.Mailer = (*Service)(nil)
 
@@ -33,11 +36,35 @@ var formSubmissionsCounter = promauto.NewCounterVec(
 	[]string{"form"},
 )
 
-// formMailer bundles the resolved body template and compiled subject template for
-// a single form.
+var autoresponderCounter = promauto.NewCounterVec(
+	prometheus.CounterOpts{
+		Name: "mailbear_autoresponder_deliveries_total",
+		Help: "Autoresponder emails handled, partitioned by form name and outcome.",
+	},
+	[]string{"form", "outcome"},
+)
+
+// formMailer bundles the resolved templates for a single form: the owner
+// notification body/subject and, optionally, the submitter autoresponder.
 type formMailer struct {
+	body          *mailTemplate
+	subject       *textTmpl.Template
+	autoresponder *autoresponder
+}
+
+// autoresponder holds the resolved templates for the submitter confirmation email.
+type autoresponder struct {
 	body    *mailTemplate
 	subject *textTmpl.Template
+}
+
+// emailSpec is a single email to render and deliver.
+type emailSpec struct {
+	to          []string
+	replyToAddr string
+	replyToName string
+	subject     *textTmpl.Template
+	body        *mailTemplate
 }
 
 // Service is the concrete implementation of domain.Mailer.
@@ -93,7 +120,7 @@ func New(logger zerolog.Logger, opts ...Option) (*Service, error) {
 	// a webhook-only deployment needs no mail server.
 	needsEmail := false
 	for _, form := range s.forms {
-		if len(form.ToEmail) > 0 {
+		if len(form.ToEmail) > 0 || form.Autoresponder != nil {
 			needsEmail = true
 			break
 		}
@@ -137,7 +164,28 @@ func New(logger zerolog.Logger, opts ...Option) (*Service, error) {
 			return nil, fmt.Errorf("form %q has an invalid subject template: %w", form.Key, err)
 		}
 
-		s.mailers[form.Key] = &formMailer{body: body, subject: subject}
+		mailer := &formMailer{body: body, subject: subject}
+
+		if form.Autoresponder != nil {
+			arBody, ok := templates[form.Autoresponder.Template]
+			if !ok {
+				return nil, fmt.Errorf("form %q autoresponder references unknown template %q", form.Key, form.Autoresponder.Template)
+			}
+
+			arSubjectStr := form.Autoresponder.Subject
+			if arSubjectStr == "" {
+				arSubjectStr = defaultAutoresponderSubject
+			}
+
+			arSubject, err := textTmpl.New("ar-subject:" + form.Key).Funcs(templateFuncs).Parse(arSubjectStr)
+			if err != nil {
+				return nil, fmt.Errorf("form %q has an invalid autoresponder subject template: %w", form.Key, err)
+			}
+
+			mailer.autoresponder = &autoresponder{body: arBody, subject: arSubject}
+		}
+
+		s.mailers[form.Key] = mailer
 	}
 
 	return s, nil
@@ -174,11 +222,13 @@ func (s *Service) Send(ctx context.Context, submission *domain.FormSubmission) e
 		return fmt.Errorf("no mailer configured for form %q", form.Key)
 	}
 
+	data := templateData(form, submission)
+
 	hasEmail := len(form.ToEmail) > 0
 	hasWebhook := form.WebhookURL != ""
 
 	if hasEmail {
-		if err := s.sendEmail(form, mailer, submission); err != nil {
+		if err := s.sendEmail(form, mailer, data, submission); err != nil {
 			return err
 		}
 		formSubmissionsCounter.With(prometheus.Labels{"form": form.HumanReadableName}).Add(1)
@@ -202,35 +252,77 @@ func (s *Service) Send(ctx context.Context, submission *domain.FormSubmission) e
 		}
 	}
 
+	// Autoresponder: a courtesy confirmation to the submitter. Best-effort — the
+	// submission already reached the owner, so a failure must not fail the
+	// request (which would prompt a resubmit and re-notify the owner).
+	if mailer.autoresponder != nil {
+		if err := s.sendAutoresponder(form, mailer.autoresponder, data, submission); err != nil {
+			autoresponderCounter.With(prometheus.Labels{"form": form.HumanReadableName, "outcome": "failure"}).Add(1)
+			s.logger.Error().Err(err).Str("form", form.HumanReadableName).Msg("autoresponder delivery failed")
+		} else {
+			autoresponderCounter.With(prometheus.Labels{"form": form.HumanReadableName, "outcome": "success"}).Add(1)
+		}
+	}
+
 	return nil
 }
 
-// sendEmail renders the form's subject and body templates and delivers the email
-// to the form's recipients. When the template has a text part, a
-// multipart/alternative (text + HTML) message is sent; otherwise it is HTML-only.
-func (s *Service) sendEmail(form *domain.Form, mailer *formMailer, submission *domain.FormSubmission) error {
-	data := domain.TemplateData{
+// templateData builds the values exposed to subject and body templates.
+func templateData(form *domain.Form, submission *domain.FormSubmission) domain.TemplateData {
+	return domain.TemplateData{
 		Name:     submission.Name,
 		Email:    submission.Email,
 		Subject:  submission.Subject,
 		Content:  submission.Content,
 		FormName: form.HumanReadableName,
 	}
+}
 
+// sendEmail delivers the owner-notification email to the form's recipients, with
+// Reply-To set to the submitter so a reply reaches them.
+func (s *Service) sendEmail(form *domain.Form, mailer *formMailer, data domain.TemplateData, submission *domain.FormSubmission) error {
+	return s.deliver(emailSpec{
+		to:          form.ToEmail,
+		replyToAddr: submission.Email,
+		replyToName: submission.Name,
+		subject:     mailer.subject,
+		body:        mailer.body,
+	}, data)
+}
+
+// sendAutoresponder delivers the confirmation email to the submitter. Reply-To is
+// set to the form's first recipient (when any) so replies reach the owner.
+func (s *Service) sendAutoresponder(form *domain.Form, ar *autoresponder, data domain.TemplateData, submission *domain.FormSubmission) error {
+	spec := emailSpec{
+		to:      []string{submission.Email},
+		subject: ar.subject,
+		body:    ar.body,
+	}
+	if len(form.ToEmail) > 0 {
+		spec.replyToAddr = form.ToEmail[0]
+	}
+	return s.deliver(spec, data)
+}
+
+// deliver renders and sends a single email. When the body template has a text
+// part, a multipart/alternative (text + HTML) message is sent; otherwise HTML-only.
+func (s *Service) deliver(spec emailSpec, data domain.TemplateData) error {
 	var subjectBuf strings.Builder
-	if err := mailer.subject.Execute(&subjectBuf, data); err != nil {
+	if err := spec.subject.Execute(&subjectBuf, data); err != nil {
 		return errors.Wrap(err, "couldn't render the subject")
 	}
 
-	htmlBody, textBody, err := mailer.body.render(data)
+	htmlBody, textBody, err := spec.body.render(data)
 	if err != nil {
 		return errors.Wrap(err, "couldn't render the email body")
 	}
 
 	msg := mail.NewMessage()
 	msg.SetHeader("From", s.settings.SMTP.FromEmail)
-	msg.SetHeader("To", form.ToEmail...)
-	msg.SetAddressHeader("Reply-To", submission.Email, submission.Name)
+	msg.SetHeader("To", spec.to...)
+	if spec.replyToAddr != "" {
+		msg.SetAddressHeader("Reply-To", spec.replyToAddr, spec.replyToName)
+	}
 	msg.SetHeader("Subject", subjectBuf.String())
 
 	if textBody != "" {
@@ -240,19 +332,23 @@ func (s *Service) sendEmail(form *domain.Form, mailer *formMailer, submission *d
 		msg.SetBody("text/html", htmlBody)
 	}
 
-	dialer := mail.NewDialer(
+	if err := s.dialer().DialAndSend(msg); err != nil {
+		return errors.Wrap(err, "couldn't send the email")
+	}
+
+	return nil
+}
+
+// dialer builds an SMTP dialer from the configured settings.
+func (s *Service) dialer() *mail.Dialer {
+	d := mail.NewDialer(
 		s.settings.SMTP.Host,
 		s.settings.SMTP.Port,
 		s.settings.SMTP.User,
 		s.settings.SMTP.Password,
 	)
 	if s.settings.SMTP.DisableTLS {
-		dialer.StartTLSPolicy = mail.NoStartTLS
+		d.StartTLSPolicy = mail.NoStartTLS
 	}
-
-	if err := dialer.DialAndSend(msg); err != nil {
-		return errors.Wrap(err, "couldn't send the email")
-	}
-
-	return nil
+	return d
 }

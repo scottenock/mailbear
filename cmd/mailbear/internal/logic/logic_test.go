@@ -168,6 +168,40 @@ func TestSendWebhookOnlyFailsOnNon2xx(t *testing.T) {
 	require.Error(t, err, "a webhook-only form must fail when the webhook rejects the request")
 }
 
+func TestNewAutoresponder(t *testing.T) {
+	svc, err := New(
+		zerolog.Nop(),
+		WithSettings(domain.Settings{SMTP: domain.SMTP{Host: "h", Port: 25, FromEmail: "f@x"}}),
+		WithForms([]*domain.Form{{
+			Key:               "k",
+			HumanReadableName: "contact",
+			ToEmail:           []string{"owner@example.com"},
+			Autoresponder:     &domain.Autoresponder{Template: "default", Subject: "Thanks {{.Name}}"},
+		}}),
+	)
+	require.NoError(t, err)
+
+	ar := svc.mailers["k"].autoresponder
+	require.NotNil(t, ar, "autoresponder should be built")
+
+	var buf strings.Builder
+	require.NoError(t, ar.subject.Execute(&buf, domain.TemplateData{Name: "Ada"}))
+	require.Equal(t, "Thanks Ada", buf.String())
+}
+
+func TestNewAutoresponderUnknownTemplate(t *testing.T) {
+	_, err := New(
+		zerolog.Nop(),
+		WithSettings(domain.Settings{SMTP: domain.SMTP{Host: "h", Port: 25, FromEmail: "f@x"}}),
+		WithForms([]*domain.Form{{
+			Key:           "k",
+			ToEmail:       []string{"owner@example.com"},
+			Autoresponder: &domain.Autoresponder{Template: "does-not-exist"},
+		}}),
+	)
+	require.Error(t, err, "autoresponder referencing a missing template should fail at startup")
+}
+
 func TestNewUnknownTemplate(t *testing.T) {
 	_, err := New(
 		zerolog.Nop(),

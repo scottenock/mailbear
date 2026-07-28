@@ -71,6 +71,21 @@ type Form struct {
 	// ErrorRedirectURL is the 303 target for browser form posts that fail
 	// (validation, spam, delivery). When empty, failures return JSON.
 	ErrorRedirectURL string `yaml:"error_redirect_url"`
+
+	// Autoresponder, when set, sends a confirmation email back to the submitter
+	// after a successful submission.
+	Autoresponder *Autoresponder `yaml:"autoresponder"`
+}
+
+// Autoresponder configures the confirmation email sent to the submitter.
+type Autoresponder struct {
+	// Template is the name of the body template (<name>.html / <name>.txt) used
+	// for the confirmation email. Required when an autoresponder is configured.
+	Template string `yaml:"template"`
+
+	// Subject is an optional text/template subject line for the confirmation
+	// email. Empty means a built-in default.
+	Subject string `yaml:"subject"`
 }
 
 // TemplateData is the data made available to subject and body templates.
@@ -109,6 +124,9 @@ func (form *Form) Validate() error {
 		if err := validateHTTPURL(u.field, u.value); err != nil {
 			return err
 		}
+	}
+	if form.Autoresponder != nil && form.Autoresponder.Template == "" {
+		return fmt.Errorf("form autoresponder requires a 'template'")
 	}
 	return nil
 }
