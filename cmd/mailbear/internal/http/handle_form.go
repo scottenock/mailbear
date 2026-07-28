@@ -15,6 +15,7 @@ func (s *Server) handleForm(w http.ResponseWriter, r *http.Request) {
 	// check if form exists
 	form := s.mailer.FormByKey(formID)
 	if form == nil {
+		recordResult(nil, resultNotFound)
 		writeJSON(w, http.StatusNotFound, "the given form does not exist")
 		return
 	}
@@ -22,12 +23,14 @@ func (s *Server) handleForm(w http.ResponseWriter, r *http.Request) {
 	// parse form data from the body (JSON or form-encoded)
 	data, err := bindSubmission(r, formID)
 	if err != nil {
+		recordResult(form, resultInvalid)
 		respondError(w, r, form, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	// validate form data
 	if err := data.Validate(); err != nil {
+		recordResult(form, resultInvalid)
 		respondError(w, r, form, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -37,6 +40,7 @@ func (s *Server) handleForm(w http.ResponseWriter, r *http.Request) {
 	// but drop the submission without sending mail.
 	if data.Honeypot != "" {
 		s.logger.Warn().Str("form", data.FormID).Msg("honeypot triggered; dropping submission")
+		recordResult(form, resultHoneypot)
 		respondSuccess(w, r, form)
 		return
 	}
@@ -44,6 +48,7 @@ func (s *Server) handleForm(w http.ResponseWriter, r *http.Request) {
 	// check if domain allowed (defense in depth; the Origin header is only
 	// enforced by browsers, so this is not a substitute for the checks below)
 	if !form.OriginDomainAllowed(r.Header.Get("Origin")) {
+		recordResult(form, resultForbiddenOrigin)
 		respondError(w, r, form, http.StatusForbidden, "you're not allowed to send from this domain")
 		return
 	}
@@ -54,10 +59,12 @@ func (s *Server) handleForm(w http.ResponseWriter, r *http.Request) {
 		ok, err := s.mailer.VerifyTurnstile(r.Context(), data.TurnstileToken, realIP(r))
 		if err != nil {
 			s.logger.Error().Err(err).Str("form", data.FormID).Msg("turnstile verification failed to complete")
+			recordResult(form, resultCaptchaError)
 			respondError(w, r, form, http.StatusBadGateway, "couldn't verify the captcha")
 			return
 		}
 		if !ok {
+			recordResult(form, resultCaptchaFailed)
 			respondError(w, r, form, http.StatusForbidden, "captcha verification failed")
 			return
 		}
@@ -66,10 +73,12 @@ func (s *Server) handleForm(w http.ResponseWriter, r *http.Request) {
 	// send the mail
 	if err := s.mailer.Send(r.Context(), data); err != nil {
 		s.logger.Error().Err(err).Str("form", data.FormID).Msg("failed to send form submission email")
+		recordResult(form, resultSendError)
 		respondError(w, r, form, http.StatusInternalServerError, "couldn't send the mail")
 		return
 	}
 
+	recordResult(form, resultSuccess)
 	respondSuccess(w, r, form)
 }
 

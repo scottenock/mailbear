@@ -59,6 +59,7 @@ func New(logger zerolog.Logger, mailer domain.Mailer, httpAddress, metricsAddr s
 			rateLimitWindow,
 			func(req *http.Request) (string, error) { return realIP(req), nil },
 			httprate.WithLimitHandler(func(w http.ResponseWriter, _ *http.Request) {
+				rateLimitedCounter.Inc()
 				writeJSON(w, http.StatusTooManyRequests, "rate limit exceeded")
 			}),
 		))

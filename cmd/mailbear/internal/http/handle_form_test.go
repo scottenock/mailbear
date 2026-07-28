@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/laputalabs/mailbear/cmd/mailbear/internal/domain"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 )
@@ -269,6 +270,21 @@ func TestNoRedirectFallsBackToJSON(t *testing.T) {
 	rec := do(newTestServer(m, 1000), formPost(validForm))
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Empty(t, rec.Header().Get("Location"))
+}
+
+func TestMetricsRecordOutcomes(t *testing.T) {
+	m := &fakeMailer{form: testForm()}
+	s := newTestServer(m, 1000)
+
+	honeypotBefore := testutil.ToFloat64(formRequestsCounter.WithLabelValues("contact", resultHoneypot))
+	do(s, jsonPost(`{"email":"a@b.com","subject":"s","content":"c","_gotcha":"bot"}`))
+	require.Equal(t, honeypotBefore+1, testutil.ToFloat64(formRequestsCounter.WithLabelValues("contact", resultHoneypot)))
+
+	notFoundBefore := testutil.ToFloat64(formRequestsCounter.WithLabelValues("unknown", resultNotFound))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/form/nope", strings.NewReader(validJSON))
+	req.Header.Set("Content-Type", "application/json")
+	do(s, req)
+	require.Equal(t, notFoundBefore+1, testutil.ToFloat64(formRequestsCounter.WithLabelValues("unknown", resultNotFound)))
 }
 
 func TestHandleFormBodyLimit(t *testing.T) {
