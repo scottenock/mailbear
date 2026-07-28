@@ -1,0 +1,77 @@
+<!--
+  MailBear: submit with vanilla JavaScript (fetch), handling the JSON response
+  in-page. Includes a honeypot field and an optional Cloudflare Turnstile widget.
+
+  Turnstile is only required if the server is started with a Turnstile secret
+  (TURNSTILE_SECRET / --turnstileSecret). If it isn't, delete the widget markup,
+  the Turnstile <script>, and the turnstile.reset() call below.
+-->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Contact us</title>
+  </head>
+  <body>
+    <form id="contact">
+      <label>Name <input type="text" name="name" /></label>
+      <label>Email <input type="email" name="email" required /></label>
+      <label>Subject <input type="text" name="subject" required /></label>
+      <label>Message <textarea name="content" rows="6" required></textarea></label>
+
+      <!-- Honeypot: keep hidden and empty. -->
+      <input
+        type="text"
+        name="_gotcha"
+        tabindex="-1"
+        autocomplete="off"
+        aria-hidden="true"
+        style="position: absolute; left: -9999px"
+      />
+
+      <!-- Optional Cloudflare Turnstile widget. It injects a hidden
+           `cf-turnstile-response` field into the form, which is sent below. -->
+      <div class="cf-turnstile" data-sitekey="YOUR_TURNSTILE_SITE_KEY"></div>
+
+      <button type="submit">Send</button>
+      <p id="status" role="status"></p>
+    </form>
+
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    <script>
+      const form = document.getElementById("contact");
+      const status = document.getElementById("status");
+      const endpoint = "https://mailbear.example.com/api/v1/form/YOUR_FORM_KEY";
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        status.textContent = "Sending…";
+
+        // Collect every named field (including _gotcha and, when present, the
+        // Turnstile token) into a JSON object.
+        const payload = Object.fromEntries(new FormData(form).entries());
+
+        try {
+          const response = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const body = await response.json();
+
+          if (response.ok) {
+            status.textContent = "Thanks — your message was sent.";
+            form.reset();
+          } else {
+            status.textContent = body.message || "Something went wrong.";
+          }
+        } catch {
+          status.textContent = "Network error — please try again.";
+        } finally {
+          // Reset the Turnstile widget so a new token is issued for the next try.
+          if (window.turnstile) window.turnstile.reset();
+        }
+      });
+    </script>
+  </body>
+</html>

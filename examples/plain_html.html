@@ -1,0 +1,44 @@
+<!--
+  MailBear: plain HTML form, no JavaScript.
+
+  The browser POSTs directly to MailBear. For a friendly result page, set
+  `redirect_url` (and optionally `error_redirect_url`) on the form in config.yml
+  — MailBear replies with a 303 redirect to those pages, so the visitor never
+  sees a raw JSON response. Example config:
+
+      forms:
+        contact:
+          key: YOUR_FORM_KEY
+          allowed_domains: [your-site.example]
+          to_email: [you@example.com]
+          redirect_url: https://your-site.example/thanks
+          error_redirect_url: https://your-site.example/oops
+-->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Contact us</title>
+  </head>
+  <body>
+    <form action="https://mailbear.example.com/api/v1/form/YOUR_FORM_KEY" method="POST">
+      <label>Name <input type="text" name="name" /></label>
+      <label>Email <input type="email" name="email" required /></label>
+      <label>Subject <input type="text" name="subject" required /></label>
+      <label>Message <textarea name="content" rows="6" required></textarea></label>
+
+      <!-- Honeypot: hidden from real users, tempting to bots. Leave it empty.
+           A filled value makes MailBear silently drop the submission. -->
+      <input
+        type="text"
+        name="_gotcha"
+        tabindex="-1"
+        autocomplete="off"
+        aria-hidden="true"
+        style="position: absolute; left: -9999px"
+      />
+
+      <button type="submit">Send</button>
+    </form>
+  </body>
+</html>

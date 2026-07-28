@@ -345,6 +345,14 @@ Delivery semantics:
 ## Examples
 
 
+Ready-to-use integration snippets live in the [`examples/`](./examples) directory:
+
+- [`plain_html.html`](examples/plain_html.html) — a no-JavaScript HTML form (uses `redirect_url` for the result page).
+- [`fetch.html`](examples/fetch.html) — vanilla JS `fetch()` with a honeypot and a Cloudflare Turnstile widget.
+- [`react_example.jsx`](examples/react_example.jsx) — a React (hooks) form component.
+- [`vuejs_example.vue`](examples/vuejs_example.vue) — a Vue single-file component (shown below).
+
+
 ### MailBear with VueJS
 
 ```html
@@ -463,73 +471,6 @@ export default {
 </style>
 ```
 
-
-
-### MailBear with jQuery
-
-
-```html
-<form id="contact-form" class="pure-form">
-            
-    <div class="meta">
-        <input type="text" name="name" placeholder="Naam">
-        
-        <input type="email" name="email" placeholder="Email">
-
-        <input type="text" name="subject" placeholder="Subject">
-    </div><!-- .meta -->
-    
-    
-    <textarea name="content" placeholder="Your message" rows="7"></textarea>
-    
-    <button type="submit" class="">
-        <i class="fa fa-send-o"></i> Send
-    </button>
-
-    
-    <div class="overlay">
-        <div> 
-        </div>
-    </div><!-- .overlay -->
-    
-    
-</form>
-
-
-
-<script>
-    $( document ).ready(function() {    
-        
-        var $contactForm = $('#contact-form');
-        $contactForm.submit(function(e) {
-            e.preventDefault();
-            $.ajax({
-                url: 'https://mailbear.yourdomain.com/api/v1/form/10810dce-1074-4988-a8f5-4c538a749a95',
-                method: 'POST',
-                data: $(this).serialize(),
-                dataType: 'json',
-                beforeSend: function() {
-                    $contactForm.find('.overlay div').html('<div class="alert alert--loading"><i class="fa fa-circle-o-notch fa-spin"></i> &nbsp; Sending message...</div>');
-                    $contactForm.find('.overlay').fadeIn();
-                },
-                success: function(data) {
-                    $contactForm.find('.alert--loading').hide();
-                    $contactForm.find('.overlay div').html('<div class="alert alert--success"><i class="fa fa-check"></i> &nbsp; Your message was sent successfully!</div>');
-                    $contactForm.find('.overlay').fadeIn();
-                },
-                error: function(err) {
-                    $contactForm.find('.alert--loading').hide();
-                    $contactForm.find('.overlay div').html('<div class="alert alert--error"><i class="fa fa-warning"></i> &nbsp; Ooops, something went wrong.</div>');
-                    $contactForm.find('.overlay').fadeIn();
-                }
-            });
-        });
-        $contactForm.find('.overlay').click(function(e) {
-            $(this).fadeOut(); 
-        });                
-    });
-</script>
-```
 
 
 ## Metrics
