@@ -78,6 +78,11 @@ for the authoritative list.
 | `--smtpFromEmail` | `SMTP_FROM_EMAIL` | — (required) | From address for outgoing mail |
 | `--smtpFromName` | `SMTP_FROM_NAME` | `MailBear` | From name for outgoing mail |
 | `--turnstileSecret` | `TURNSTILE_SECRET` | — | Cloudflare Turnstile secret key (empty disables captcha) |
+| `--auditLog` | `AUDIT_LOG` | — | Path to a JSONL submission audit log (empty disables it) |
+| `--auditLogMaxSizeMB` | `AUDIT_LOG_MAX_SIZE_MB` | `100` | Rotate the audit log once it exceeds this size (MB) |
+| `--auditLogMaxBackups` | `AUDIT_LOG_MAX_BACKUPS` | `10` | Rotated audit-log files to retain (0 keeps all) |
+| `--auditLogMaxAgeDays` | `AUDIT_LOG_MAX_AGE_DAYS` | `90` | Maximum age of rotated audit-log files in days (0 = no limit) |
+| `--auditLogCompress` | `AUDIT_LOG_COMPRESS` | `true` | gzip rotated audit-log files |
 | `--logLevel` | `LOG_LEVEL` | `info` | Log level (debug, info, warn, error) |
 | `--prettyLog` | `PRETTY_LOG` | `true` | Pretty-print logs to the console |
 
@@ -557,6 +562,35 @@ balancers and Kubernetes liveness/readiness probes:
 
 Both return `200 OK` when the server is serving. They bypass the rate limiter and
 request logging, so probing them frequently is safe.
+
+
+## Audit Log
+
+Set `--auditLog` / `AUDIT_LOG` to a file path and MailBear appends every accepted
+submission — with its delivery outcome — as a line of JSON
+([JSON Lines](https://jsonlines.org)). It's off by default. The record is written
+regardless of whether delivery succeeded, so nothing is lost if your mail server
+is down: you can inspect or replay the file later.
+
+```
+{"ts":"2026-07-28T10:15:03Z","form":"contact","name":"Ada","email":"ada@example.com","subject":"Question","content":"How much?","delivered":true}
+{"ts":"2026-07-28T10:16:41Z","form":"contact","name":"Grace","email":"grace@example.com","subject":"Hi","content":"hello","delivered":false}
+```
+
+Only submissions that pass validation and the anti-abuse checks are logged (spam
+and honeypot hits are not). Query it with standard tools, e.g.
+`jq 'select(.delivered==false)' audit.jsonl` to find deliveries that failed.
+
+The log is **rotated automatically**: once the active file passes
+`--auditLogMaxSizeMB` (default 100 MB) it's rolled over, older files beyond
+`--auditLogMaxBackups` (default 10) or `--auditLogMaxAgeDays` (default 90) are
+deleted, and rotated files are gzipped unless `--auditLogCompress=false`. Tune
+these to match your retention needs.
+
+> ⚠️ **This stores personal data** (names, emails, message contents) on disk.
+> Put the file on a persistent, access-controlled volume, and set the retention
+> knobs above to whatever your data-protection obligations require (the defaults
+> keep roughly 90 days / 10 rotations).
 
 
 ## Acknowledgements

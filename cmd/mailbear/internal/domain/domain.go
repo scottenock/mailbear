@@ -6,9 +6,29 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"time"
 
 	"github.com/badoux/checkmail"
 )
+
+// SubmissionRecord is a persisted record of a form submission and its delivery
+// outcome (e.g. for an audit log).
+type SubmissionRecord struct {
+	Timestamp time.Time `json:"ts"`
+	Form      string    `json:"form"`
+	Name      string    `json:"name"`
+	Email     string    `json:"email"`
+	Subject   string    `json:"subject"`
+	Content   string    `json:"content"`
+	Delivered bool      `json:"delivered"`
+}
+
+// Store persists submission records. Implementations must be safe for concurrent
+// use by multiple goroutines.
+type Store interface {
+	Save(record SubmissionRecord) error
+	Close() error
+}
 
 // Mailer is the business-logic contract consumed by the HTTP layer. The concrete
 // implementation lives in the logic package.

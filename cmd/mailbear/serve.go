@@ -10,6 +10,7 @@ import (
 	"github.com/laputalabs/mailbear/cmd/mailbear/internal/config"
 	"github.com/laputalabs/mailbear/cmd/mailbear/internal/http"
 	"github.com/laputalabs/mailbear/cmd/mailbear/internal/logic"
+	"github.com/laputalabs/mailbear/cmd/mailbear/internal/store"
 	"github.com/spf13/cobra"
 )
 
@@ -26,12 +27,32 @@ func newServeCMD() *cobra.Command {
 				log.Fatal().Err(err).Msg("Could not load forms config")
 			}
 
-			mailer, err := logic.New(
-				log,
+			opts := []logic.Option{
 				logic.WithSettings(settings()),
 				logic.WithForms(forms),
 				logic.WithTemplatesDir(templatesDir),
-			)
+			}
+
+			if auditLog != "" {
+				auditStore, err := store.NewFile(store.Options{
+					Path:       auditLog,
+					MaxSizeMB:  auditLogMaxSizeMB,
+					MaxBackups: auditLogMaxBackups,
+					MaxAgeDays: auditLogMaxAgeDays,
+					Compress:   auditLogCompress,
+				})
+				if err != nil {
+					log.Fatal().Err(err).Msg("Could not open audit log")
+				}
+				defer func() {
+					if cerr := auditStore.Close(); cerr != nil {
+						log.Error().Err(cerr).Msg("Failed to close audit log")
+					}
+				}()
+				opts = append(opts, logic.WithStore(auditStore))
+			}
+
+			mailer, err := logic.New(log, opts...)
 			if err != nil {
 				log.Fatal().Err(err).Msg("Could not initialize mailer")
 			}

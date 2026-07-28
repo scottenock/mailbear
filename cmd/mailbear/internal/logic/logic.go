@@ -75,6 +75,7 @@ type Service struct {
 	httpClient   *http.Client
 	templatesDir string
 	mailers      map[string]*formMailer
+	store        domain.Store
 }
 
 // Option configures a Service.
@@ -99,6 +100,11 @@ func WithHTTPClient(client *http.Client) Option {
 // that override and extend the embedded default.
 func WithTemplatesDir(dir string) Option {
 	return func(s *Service) { s.templatesDir = dir }
+}
+
+// WithStore sets a store that records every submission and its delivery outcome.
+func WithStore(store domain.Store) Option {
+	return func(s *Service) { s.store = store }
 }
 
 // New builds a Service, loads templates, and validates the configuration.
@@ -211,7 +217,7 @@ func (s *Service) TurnstileEnabled() bool {
 // primary channel — when it is configured, a failure fails the whole request.
 // A webhook is required only when it is the sole channel; otherwise a webhook
 // failure is logged but does not fail a submission that already went out by email.
-func (s *Service) Send(ctx context.Context, submission *domain.FormSubmission) error {
+func (s *Service) Send(ctx context.Context, submission *domain.FormSubmission) (err error) {
 	form := s.FormByKey(submission.FormID)
 	if form == nil {
 		return fmt.Errorf("form does not exist")
@@ -220,6 +226,26 @@ func (s *Service) Send(ctx context.Context, submission *domain.FormSubmission) e
 	mailer := s.mailers[form.Key]
 	if mailer == nil {
 		return fmt.Errorf("no mailer configured for form %q", form.Key)
+	}
+
+	// Record the submission and its delivery outcome, regardless of success, so a
+	// failed delivery still leaves a replayable record. Best-effort: an audit-log
+	// write failure is logged but never fails the submission.
+	if s.store != nil {
+		defer func() {
+			record := domain.SubmissionRecord{
+				Timestamp: time.Now().UTC(),
+				Form:      form.HumanReadableName,
+				Name:      submission.Name,
+				Email:     submission.Email,
+				Subject:   submission.Subject,
+				Content:   submission.Content,
+				Delivered: err == nil,
+			}
+			if serr := s.store.Save(record); serr != nil {
+				s.logger.Error().Err(serr).Str("form", form.HumanReadableName).Msg("failed to persist submission to audit log")
+			}
+		}()
 	}
 
 	data := templateData(form, submission)

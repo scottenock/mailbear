@@ -202,6 +202,59 @@ func TestNewAutoresponderUnknownTemplate(t *testing.T) {
 	require.Error(t, err, "autoresponder referencing a missing template should fail at startup")
 }
 
+// memStore is an in-memory domain.Store for tests.
+type memStore struct {
+	records []domain.SubmissionRecord
+}
+
+func (m *memStore) Save(record domain.SubmissionRecord) error {
+	m.records = append(m.records, record)
+	return nil
+}
+
+func (m *memStore) Close() error { return nil }
+
+func TestSendPersistsSuccess(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	st := &memStore{}
+	svc, err := New(
+		zerolog.Nop(),
+		WithForms([]*domain.Form{{Key: "k", HumanReadableName: "contact", WebhookURL: srv.URL}}),
+		WithStore(st),
+	)
+	require.NoError(t, err)
+
+	require.NoError(t, svc.Send(context.Background(), &domain.FormSubmission{FormID: "k", Email: "a@b.com", Subject: "s", Content: "c"}))
+	require.Len(t, st.records, 1)
+	require.Equal(t, "contact", st.records[0].Form)
+	require.Equal(t, "a@b.com", st.records[0].Email)
+	require.True(t, st.records[0].Delivered, "successful delivery records delivered=true")
+}
+
+func TestSendPersistsFailure(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	st := &memStore{}
+	svc, err := New(
+		zerolog.Nop(),
+		WithForms([]*domain.Form{{Key: "k", HumanReadableName: "contact", WebhookURL: srv.URL}}),
+		WithStore(st),
+	)
+	require.NoError(t, err)
+
+	err = svc.Send(context.Background(), &domain.FormSubmission{FormID: "k", Email: "a@b.com", Subject: "s", Content: "c"})
+	require.Error(t, err, "webhook-only delivery failure returns an error")
+	require.Len(t, st.records, 1, "a failed delivery is still recorded")
+	require.False(t, st.records[0].Delivered, "failed delivery records delivered=false")
+}
+
 func TestNewUnknownTemplate(t *testing.T) {
 	_, err := New(
 		zerolog.Nop(),

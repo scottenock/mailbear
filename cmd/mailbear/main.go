@@ -16,21 +16,26 @@ var (
 	log = zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr}).With().Timestamp().Logger()
 
 	// Persistent flags.
-	configFile   string
-	templatesDir string
-	httpAddress  string
-	metricsAddr  string
-	rateLimit    int
-	prettyLog    bool
-	logLevel     string
-	smtpHost     string
-	smtpPort     int
-	smtpUser     string
-	smtpPassword string
-	smtpDisTLS   bool
-	smtpFrom     string
-	smtpFromName string
-	turnstile    string
+	configFile         string
+	templatesDir       string
+	auditLog           string
+	auditLogMaxSizeMB  int
+	auditLogMaxBackups int
+	auditLogMaxAgeDays int
+	auditLogCompress   bool
+	httpAddress        string
+	metricsAddr        string
+	rateLimit          int
+	prettyLog          bool
+	logLevel           string
+	smtpHost           string
+	smtpPort           int
+	smtpUser           string
+	smtpPassword       string
+	smtpDisTLS         bool
+	smtpFrom           string
+	smtpFromName       string
+	turnstile          string
 )
 
 func main() {
@@ -68,6 +73,11 @@ func newRootCMD() *cobra.Command {
 	f := cmd.PersistentFlags()
 	f.StringVar(&configFile, "config", getEnvFallback("CONFIG_FILE", "config.yml"), "Path to the forms config file")
 	f.StringVar(&templatesDir, "templatesDir", getEnvFallback("TEMPLATES_DIR", ""), "Directory of custom email templates (<name>.html / <name>.txt); empty uses the built-in default")
+	f.StringVar(&auditLog, "auditLog", getEnvFallback("AUDIT_LOG", ""), "Path to a JSONL submission audit log (empty disables it)")
+	f.IntVar(&auditLogMaxSizeMB, "auditLogMaxSizeMB", cast.ToInt(getEnvFallback("AUDIT_LOG_MAX_SIZE_MB", "100")), "Audit log: rotate once the file exceeds this size (MB)")
+	f.IntVar(&auditLogMaxBackups, "auditLogMaxBackups", cast.ToInt(getEnvFallback("AUDIT_LOG_MAX_BACKUPS", "10")), "Audit log: number of rotated files to retain (0 keeps all)")
+	f.IntVar(&auditLogMaxAgeDays, "auditLogMaxAgeDays", cast.ToInt(getEnvFallback("AUDIT_LOG_MAX_AGE_DAYS", "90")), "Audit log: maximum age of rotated files in days (0 = no limit)")
+	f.BoolVar(&auditLogCompress, "auditLogCompress", cast.ToBool(getEnvFallback("AUDIT_LOG_COMPRESS", "true")), "Audit log: gzip rotated files")
 	f.StringVar(&httpAddress, "httpAddress", getEnvFallback("HTTP_ADDRESS", ":1234"), "Address the API server listens on")
 	f.StringVar(&metricsAddr, "metricsAddress", getEnvFallback("METRICS_ADDRESS", ":9090"), "Address the Prometheus metrics server listens on")
 	f.IntVar(&rateLimit, "rateLimit", cast.ToInt(getEnvFallback("RATE_LIMIT", "5")), "Max submissions per client IP per minute")

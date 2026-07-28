@@ -20,6 +20,8 @@ services:
       # RATE_LIMIT: "5"
       # Uncomment to load custom email templates from the mounted directory:
       # TEMPLATES_DIR: /mailbear/templates
+      # Uncomment to record submissions to a JSONL audit log (on the mounted volume):
+      # AUDIT_LOG: /mailbear/submissions.jsonl
     volumes:
       - ./config.yml:/mailbear/config.yml
       # Mount a directory of <name>.html / <name>.txt templates (see TEMPLATES_DIR):
