@@ -541,15 +541,16 @@ Prometheus metrics are served on `:9090/metrics` by default. The exposed metrics
 | `mailbear_form_requests_total` | `form`, `result` | Every submission request by outcome. `result` is one of `success`, `honeypot`, `invalid`, `forbidden_origin`, `captcha_failed`, `captcha_error`, `send_error`, `not_found`. |
 | `mailbear_form_submissions_total` | `form` | Submissions successfully delivered (email sent and/or webhook accepted). |
 | `mailbear_webhook_deliveries_total` | `form`, `outcome` | Webhook POSTs, `outcome` = `success` / `failure`. |
+| `mailbear_autoresponder_deliveries_total` | `form`, `outcome` | Autoresponder confirmation emails, `outcome` = `success` / `failure`. |
 | `mailbear_rate_limited_total` | — | Requests rejected by the rate limiter. |
 
 For example, a spam/rejection breakdown per form comes from
 `mailbear_form_requests_total`, while `mailbear_form_submissions_total` counts
 what actually got delivered.
 
-A Grafana dashboard for these metrics is available here: [./grafana/dashboard.json](grafana/dashboard.json)
-
-[![](grafana/dashboard_small.png)](grafana/dashboard.png)
+The endpoint uses the standard Prometheus exposition format, so any
+Prometheus-compatible stack can scrape it — build whatever dashboards or alerts
+you like on top of these metrics in the tool of your choice.
 
 
 ## Health Checks
