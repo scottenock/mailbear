@@ -63,7 +63,7 @@ func testForm() *domain.Form {
 }
 
 func newTestServer(m domain.Mailer, rateLimit int) *Server {
-	return New(zerolog.Nop(), m, ":0", ":0", rateLimit, "test")
+	return New(zerolog.Nop(), m, ":0", ":0", rateLimit, "test", "verify")
 }
 
 func do(s *Server, req *http.Request) *httptest.ResponseRecorder {
@@ -163,11 +163,35 @@ func TestHandleFormValidationFailure(t *testing.T) {
 
 func TestHandleFormHoneypot(t *testing.T) {
 	m := &fakeMailer{form: testForm()}
-	rec := do(newTestServer(m, 1000), jsonPost(`{"email":"a@b.com","subject":"s","content":"c","_gotcha":"bot"}`))
+	rec := do(newTestServer(m, 1000), jsonPost(`{"email":"a@b.com","subject":"s","content":"c","verify":"bot"}`))
 
 	// Silent success, but the submission is dropped (never sent).
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Empty(t, m.sent)
+}
+
+func TestHoneypotCustomFieldName(t *testing.T) {
+	// A server whose honeypot field is "trap" rather than the default.
+	m := &fakeMailer{form: testForm()}
+	s := New(zerolog.Nop(), m, ":0", ":0", 1000, "test", "trap")
+
+	// Filling the configured field trips the honeypot: silent 200, nothing sent.
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/form/contact-key",
+		strings.NewReader("email=a@b.com&subject=s&content=c&trap=bot"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Origin", "http://example.com")
+	require.Equal(t, http.StatusOK, do(s, req).Code)
+	require.Empty(t, m.sent)
+
+	// The old default name is now just an ignored field — the submission goes through.
+	m2 := &fakeMailer{form: testForm()}
+	s2 := New(zerolog.Nop(), m2, ":0", ":0", 1000, "test", "trap")
+	req2 := httptest.NewRequest(http.MethodPost, "/api/v1/form/contact-key",
+		strings.NewReader("email=a@b.com&subject=s&content=c&_gotcha=filled"))
+	req2.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req2.Header.Set("Origin", "http://example.com")
+	require.Equal(t, http.StatusOK, do(s2, req2).Code)
+	require.Len(t, m2.sent, 1, "the old default field name is no longer the honeypot")
 }
 
 func TestHandleFormDisallowedOrigin(t *testing.T) {
@@ -238,7 +262,7 @@ func TestRedirectHoneypotLooksLikeSuccess(t *testing.T) {
 	form.RedirectURL = "https://example.com/thanks"
 	m := &fakeMailer{form: form}
 
-	rec := do(newTestServer(m, 1000), formPost(validForm+"&_gotcha=bot"))
+	rec := do(newTestServer(m, 1000), formPost(validForm+"&verify=bot"))
 	require.Equal(t, http.StatusSeeOther, rec.Code)
 	require.Equal(t, "https://example.com/thanks", rec.Header().Get("Location"))
 	require.Empty(t, m.sent, "honeypot submission is dropped but still redirects to success")
@@ -277,7 +301,7 @@ func TestMetricsRecordOutcomes(t *testing.T) {
 	s := newTestServer(m, 1000)
 
 	honeypotBefore := testutil.ToFloat64(formRequestsCounter.WithLabelValues("contact", resultHoneypot))
-	do(s, jsonPost(`{"email":"a@b.com","subject":"s","content":"c","_gotcha":"bot"}`))
+	do(s, jsonPost(`{"email":"a@b.com","subject":"s","content":"c","verify":"bot"}`))
 	require.Equal(t, honeypotBefore+1, testutil.ToFloat64(formRequestsCounter.WithLabelValues("contact", resultHoneypot)))
 
 	notFoundBefore := testutil.ToFloat64(formRequestsCounter.WithLabelValues("unknown", resultNotFound))

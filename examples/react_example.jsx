@@ -11,7 +11,7 @@ import { useState } from "react";
 
 const ENDPOINT = "https://mailbear.example.com/api/v1/form/YOUR_FORM_KEY";
 
-const EMPTY = { name: "", email: "", subject: "", content: "", _gotcha: "" };
+const EMPTY = { name: "", email: "", subject: "", content: "", verify: "" };
 
 export default function ContactForm() {
   const [form, setForm] = useState(EMPTY);
@@ -56,11 +56,11 @@ export default function ContactForm() {
 
       {/* Honeypot: hidden from real users, left empty. */}
       <input
-        name="_gotcha"
+        name="verify"
         tabIndex={-1}
         autoComplete="off"
         aria-hidden="true"
-        value={form._gotcha}
+        value={form.verify}
         onChange={update}
         style={{ position: "absolute", left: "-9999px" }}
       />

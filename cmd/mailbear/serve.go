@@ -57,7 +57,11 @@ func newServeCMD() *cobra.Command {
 				log.Fatal().Err(err).Msg("Could not initialize mailer")
 			}
 
-			server := http.New(log, mailer, httpAddress, metricsAddr, rateLimit, version)
+			if reservedField(honeypotField) {
+				log.Fatal().Str("honeypotField", honeypotField).Msg("honeypotField collides with a real submission field")
+			}
+
+			server := http.New(log, mailer, httpAddress, metricsAddr, rateLimit, version, honeypotField)
 
 			runWithGracefulShutdown(cmd.Context(), func() {
 				if err := server.Serve(); err != nil {
@@ -72,6 +76,17 @@ func newServeCMD() *cobra.Command {
 				log.Error().Err(err).Msg("Failed to shut down HTTP server")
 			}
 		},
+	}
+}
+
+// reservedField reports whether name clashes with a real submission field, which
+// would make the honeypot silently drop every legitimate submission.
+func reservedField(name string) bool {
+	switch name {
+	case "name", "email", "subject", "content", "cf-turnstile-response":
+		return true
+	default:
+		return false
 	}
 }
 

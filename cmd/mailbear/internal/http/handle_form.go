@@ -2,6 +2,7 @@ package http
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"strings"
 
@@ -21,7 +22,7 @@ func (s *Server) handleForm(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// parse form data from the body (JSON or form-encoded)
-	data, err := bindSubmission(r, formID)
+	data, err := bindSubmission(r, formID, s.honeypotField)
 	if err != nil {
 		recordResult(form, resultInvalid)
 		respondError(w, r, form, http.StatusBadRequest, err.Error())
@@ -118,8 +119,9 @@ func isFormPost(r *http.Request) bool {
 }
 
 // bindSubmission reads a submission from the request body, supporting both JSON
-// and form-urlencoded payloads (matching what browser front-ends send).
-func bindSubmission(r *http.Request, formID string) (*domain.FormSubmission, error) {
+// and form-urlencoded payloads (matching what browser front-ends send). The
+// honeypot value is read from honeypotField, whose name is configurable.
+func bindSubmission(r *http.Request, formID, honeypotField string) (*domain.FormSubmission, error) {
 	data := &domain.FormSubmission{FormID: formID}
 
 	contentType := r.Header.Get("Content-Type")
@@ -129,9 +131,14 @@ func bindSubmission(r *http.Request, formID string) (*domain.FormSubmission, err
 
 	switch strings.TrimSpace(contentType) {
 	case "application/json":
-		if err := json.NewDecoder(r.Body).Decode(data); err != nil {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
 			return nil, err
 		}
+		if err := json.Unmarshal(body, data); err != nil {
+			return nil, err
+		}
+		data.Honeypot = jsonStringField(body, honeypotField)
 	default:
 		if err := r.ParseForm(); err != nil {
 			return nil, err
@@ -140,9 +147,25 @@ func bindSubmission(r *http.Request, formID string) (*domain.FormSubmission, err
 		data.Email = r.PostForm.Get("email")
 		data.Subject = r.PostForm.Get("subject")
 		data.Content = r.PostForm.Get("content")
-		data.Honeypot = r.PostForm.Get("_gotcha")
 		data.TurnstileToken = r.PostForm.Get("cf-turnstile-response")
+		data.Honeypot = r.PostForm.Get(honeypotField)
 	}
 
 	return data, nil
+}
+
+// jsonStringField extracts a single string field by name from a JSON object,
+// returning "" if the field is absent or not a string.
+func jsonStringField(body []byte, name string) string {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(body, &raw); err != nil {
+		return ""
+	}
+	value, ok := raw[name]
+	if !ok {
+		return ""
+	}
+	var s string
+	_ = json.Unmarshal(value, &s)
+	return s
 }

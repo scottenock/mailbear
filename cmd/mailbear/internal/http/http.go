@@ -29,19 +29,21 @@ const (
 
 // Server is the HTTP transport layer.
 type Server struct {
-	api     *http.Server
-	metrics *http.Server
-	logger  zerolog.Logger
-	mailer  domain.Mailer
-	version string
+	api           *http.Server
+	metrics       *http.Server
+	logger        zerolog.Logger
+	mailer        domain.Mailer
+	version       string
+	honeypotField string
 }
 
 // New builds the API and metrics servers.
-func New(logger zerolog.Logger, mailer domain.Mailer, httpAddress, metricsAddr string, rateLimit int, version string) *Server {
+func New(logger zerolog.Logger, mailer domain.Mailer, httpAddress, metricsAddr string, rateLimit int, version, honeypotField string) *Server {
 	s := &Server{
-		logger:  logger.With().Str("layer", "http").Logger(),
-		mailer:  mailer,
-		version: version,
+		logger:        logger.With().Str("layer", "http").Logger(),
+		mailer:        mailer,
+		version:       version,
+		honeypotField: honeypotField,
 	}
 
 	router := chi.NewRouter()

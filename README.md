@@ -78,6 +78,7 @@ for the authoritative list.
 | `--smtpFromEmail` | `SMTP_FROM_EMAIL` | — (required) | From address for outgoing mail |
 | `--smtpFromName` | `SMTP_FROM_NAME` | `MailBear` | From name for outgoing mail |
 | `--turnstileSecret` | `TURNSTILE_SECRET` | — | Cloudflare Turnstile secret key (empty disables captcha) |
+| `--honeypotField` | `HONEYPOT_FIELD` | `verify` | Name of the hidden honeypot form field |
 | `--auditLog` | `AUDIT_LOG` | — | Path to a JSONL submission audit log (empty disables it) |
 | `--auditLogMaxSizeMB` | `AUDIT_LOG_MAX_SIZE_MB` | `100` | Rotate the audit log once it exceeds this size (MB) |
 | `--auditLogMaxBackups` | `AUDIT_LOG_MAX_BACKUPS` | `10` | Rotated audit-log files to retain (0 keeps all) |
@@ -135,10 +136,14 @@ The form endpoint is public, so it needs protection against bots and abuse.
 MailBear applies these defences, from cheapest to strongest:
 
 1. **Rate limiting** — per client IP (see the section above).
-2. **Honeypot** — every submission may include a hidden `_gotcha` field.
-   Legitimate front-ends keep it empty; bots that fill every field trip it.
-   A tripped honeypot returns a normal success response but silently drops the
-   message (so bots don't learn the field is a trap). No configuration needed.
+2. **Honeypot** — every submission may include a hidden decoy field (named
+   `verify` by default). Legitimate front-ends keep it empty; bots that fill
+   every field trip it. A tripped honeypot returns a normal success response but
+   silently drops the message (so bots don't learn the field is a trap). No
+   configuration needed, but you can rename the field with `--honeypotField` /
+   `HONEYPOT_FIELD`; pick a non-obvious name (avoid the `_gotcha` that other form
+   backends use, which bots recognise and skip). Update your form's hidden field
+   to match.
 3. **Cloudflare Turnstile** — the real gate against non-browser abuse. The
    `allowed_domains` / `Origin` check alone is **not** sufficient, because any
    script can forge the `Origin` header; only a client-side challenge like
@@ -156,8 +161,8 @@ MailBear applies these defences, from cheapest to strongest:
 <form ...>
     <!-- your fields -->
 
-    <!-- honeypot: keep it visually hidden -->
-    <input type="text" name="_gotcha" style="display:none" tabindex="-1" autocomplete="off">
+    <!-- honeypot: keep it visually hidden (name must match --honeypotField) -->
+    <input type="text" name="verify" style="display:none" tabindex="-1" autocomplete="off">
 
     <!-- Turnstile widget (renders the cf-turnstile-response field) -->
     <div class="cf-turnstile" data-sitekey="YOUR_SITE_KEY"></div>

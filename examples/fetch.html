@@ -22,7 +22,7 @@
       <!-- Honeypot: keep hidden and empty. -->
       <input
         type="text"
-        name="_gotcha"
+        name="verify"
         tabindex="-1"
         autocomplete="off"
         aria-hidden="true"
@@ -47,8 +47,8 @@
         event.preventDefault();
         status.textContent = "Sending…";
 
-        // Collect every named field (including _gotcha and, when present, the
-        // Turnstile token) into a JSON object.
+        // Collect every named field (including the honeypot and, when present,
+        // the Turnstile token) into a JSON object.
         const payload = Object.fromEntries(new FormData(form).entries());
 
         try {

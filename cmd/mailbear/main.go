@@ -36,6 +36,7 @@ var (
 	smtpFrom           string
 	smtpFromName       string
 	turnstile          string
+	honeypotField      string
 )
 
 func main() {
@@ -91,6 +92,7 @@ func newRootCMD() *cobra.Command {
 	f.StringVar(&smtpFrom, "smtpFromEmail", getEnvFallback("SMTP_FROM_EMAIL", ""), "From address for outgoing mail")
 	f.StringVar(&smtpFromName, "smtpFromName", getEnvFallback("SMTP_FROM_NAME", "MailBear"), "From name for outgoing mail")
 	f.StringVar(&turnstile, "turnstileSecret", getEnvFallback("TURNSTILE_SECRET", ""), "Cloudflare Turnstile secret key (empty disables captcha)")
+	f.StringVar(&honeypotField, "honeypotField", getEnvFallback("HONEYPOT_FIELD", "verify"), "Name of the hidden honeypot form field")
 
 	return cmd
 }
