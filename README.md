@@ -28,6 +28,61 @@ A [docker-compose.yml](./docker-compose.yml) file is provided with the full set 
 environment variables.
 
 
+## Deploying behind Caddy
+
+In production, terminate TLS with a reverse proxy and don't expose MailBear's
+ports publicly. [Caddy](https://caddyserver.com) works out of the box — it
+fetches a certificate automatically and appends `X-Forwarded-For`, which MailBear
+uses to recover the real client IP for rate limiting (see
+[Rate Limiting & Reverse Proxies](#rate-limiting--reverse-proxies)).
+
+`Caddyfile`:
+
+```caddy
+forms.example.com {
+    reverse_proxy mailbear:1234
+}
+```
+
+Use `mailbear:1234` when Caddy shares a Docker network with MailBear (the compose
+service name); use `localhost:1234` if Caddy runs directly on the host.
+
+Crucially, **only Caddy should be publicly reachable.** Run them together and
+give MailBear no published ports — Caddy reaches it over the internal network:
+
+```yaml
+services:
+  caddy:
+    image: caddy:2
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+    depends_on:
+      - mailbear
+
+  mailbear:
+    image: ghcr.io/laputalabs/mailbear:v0.0.2
+    command: serve
+    # No `ports:` — MailBear is reachable only to Caddy, as "mailbear:1234".
+    environment:
+      SMTP_HOST: smtp.example.com
+      SMTP_FROM_EMAIL: no-reply@example.com
+      # ... other settings
+    volumes:
+      - ./config.yml:/mailbear/config.yml
+
+volumes:
+  caddy_data:
+```
+
+If MailBear published `1234` to the host, clients could hit it directly —
+bypassing TLS and forging `X-Forwarded-For` to defeat the rate limiter. Keep the
+metrics port (`:9090`) internal as well; don't proxy it publicly.
+
+
 ## Run in Development
 
 Copy `config_sample.yml` to `config.yml`, then run the `serve` command:
