@@ -1,8 +1,173 @@
-<p>Hello,</p>
-<p>Someone has just submitted a new form on your website.</p>
-<p>Kind regards,<br>MailBear</p>
-<p><br></p>
-<p><b>Name:</b> {{ .Name }}</p>
-<p><b>Email:</b> {{ .Email }}</p>
-<p><b>Subject:</b> {{ .Subject }}</p>
-<p><b>Content:</b><br><br>{{ nl2br .Content }}</p>
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  </head>
+  <body
+    style="
+      margin: 0;
+      padding: 0;
+      background-color: #f4f4f5;
+      font-family: Arial, Helvetica, sans-serif;
+    "
+  >
+    <table
+      role="presentation"
+      width="100%"
+      cellpadding="0"
+      cellspacing="0"
+      style="background-color: #f4f4f5; padding: 24px 0"
+    >
+      <tr>
+        <td align="center">
+          <table
+            role="presentation"
+            width="600"
+            cellpadding="0"
+            cellspacing="0"
+            style="
+              background-color: #ffffff;
+              border-radius: 8px;
+              overflow: hidden;
+              border: 1px solid #e4e4e7;
+            "
+          >
+            <tr>
+              <td style="background-color: #18181b; padding: 20px 32px">
+                <span style="color: #ffffff; font-size: 16px; font-weight: bold"
+                  >New Contact Form Submission</span
+                >
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 32px">
+                <p style="margin: 0 0 16px 0; font-size: 14px; color: #3f3f46">
+                  Someone just submitted a new form on your website.
+                </p>
+
+                <table
+                  role="presentation"
+                  width="100%"
+                  cellpadding="0"
+                  cellspacing="0"
+                  style="border-collapse: collapse; margin-bottom: 20px"
+                >
+                  <tr>
+                    <td
+                      style="
+                        padding: 8px 0;
+                        border-bottom: 1px solid #e4e4e7;
+                        font-size: 14px;
+                        color: #71717a;
+                        width: 100px;
+                      "
+                    >
+                      Name
+                    </td>
+                    <td
+                      style="
+                        padding: 8px 0;
+                        border-bottom: 1px solid #e4e4e7;
+                        font-size: 14px;
+                        color: #18181b;
+                      "
+                    >
+                      {{ .Name }}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td
+                      style="
+                        padding: 8px 0;
+                        border-bottom: 1px solid #e4e4e7;
+                        font-size: 14px;
+                        color: #71717a;
+                      "
+                    >
+                      Email
+                    </td>
+                    <td
+                      style="
+                        padding: 8px 0;
+                        border-bottom: 1px solid #e4e4e7;
+                        font-size: 14px;
+                        color: #18181b;
+                      "
+                    >
+                      <a
+                        href="mailto:{{ .Email }}"
+                        style="color: #2563eb; text-decoration: none"
+                        >{{ .Email }}</a
+                      >
+                    </td>
+                  </tr>
+                  <tr>
+                    <td
+                      style="
+                        padding: 8px 0;
+                        border-bottom: 1px solid #e4e4e7;
+                        font-size: 14px;
+                        color: #71717a;
+                      "
+                    >
+                      Subject
+                    </td>
+                    <td
+                      style="
+                        padding: 8px 0;
+                        border-bottom: 1px solid #e4e4e7;
+                        font-size: 14px;
+                        color: #18181b;
+                      "
+                    >
+                      {{ .Subject }}
+                    </td>
+                  </tr>
+                </table>
+
+                <p style="margin: 0 0 8px 0; font-size: 14px; color: #71717a">
+                  Message
+                </p>
+                <table
+                  role="presentation"
+                  width="100%"
+                  cellpadding="0"
+                  cellspacing="0"
+                >
+                  <tr>
+                    <td
+                      style="
+                        background-color: #f4f4f5;
+                        border-radius: 6px;
+                        padding: 16px;
+                        font-size: 14px;
+                        color: #18181b;
+                        line-height: 1.6;
+                      "
+                    >
+                      {{ nl2br .Content }}
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td
+                style="
+                  padding: 16px 32px;
+                  background-color: #fafafa;
+                  border-top: 1px solid #e4e4e7;
+                "
+              >
+                <p style="margin: 0; font-size: 12px; color: #a1a1aa">
+                  Auto-sent from website contact form.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
