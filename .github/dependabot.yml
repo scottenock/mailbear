@@ -1,0 +1,38 @@
+version: 2
+
+updates:
+  # Go module dependencies.
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: deps
+    groups:
+      # Batch minor/patch bumps into one PR to cut review noise; major bumps
+      # still get their own PR so breaking changes are reviewed in isolation.
+      go-minor-patch:
+        update-types:
+          - minor
+          - patch
+
+  # Versions of the actions used in the workflows.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
+    groups:
+      actions:
+        patterns:
+          - "*"
+
+  # Base images in the Dockerfile (golang, alpine).
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: docker
